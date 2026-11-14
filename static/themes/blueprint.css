@@ -1,0 +1,47 @@
+/*
+ * GoMark theme — blueprint: white panels on a color1 frame.
+ * Overrides only the :root variables of theme.css.
+ */
+:root {
+  --bg:           #FFFFFF; /* white  — content panel */
+  --bg-alt:       #FFFFFF; /* white  — side columns */
+  --surface:      #FFFFFF; /* white */
+  --ink:          #1F2125; /* bg */
+  --text:         #2A2D35; /* color5 */
+  --gray:         #4D576A; /* color4 */
+  --gray-soft:    #6C7689; /* color3 */
+  --line:         #CED3DE; /* color1 */
+  --line-dash:    #CED3DE; /* color1 */
+  --hover:        #CED3DE; /* color1 */
+  --frame:        #CED3DE; /* color1 — frame */
+  --active-bg:    #4D576A; /* color4 */
+  --active-ink:   #FFFFFF; /* white */
+  --active-muted: #CED3DE; /* color1 */
+  --table-head:   #4D576A; /* color4 — table header (a bit lighter than code) */
+  --table-head-ink: #FFFFFF; /* white */
+  --heading:      #4D576A; /* color4 — headings h1…h6 */
+  --top-active:   #2A2D35; /* color5 — top bar box */
+  --file-active:  #6C7689; /* color3 — active file */
+  --toc-bg:       #FFFFFF; /* white  — outline panel (light) */
+  --toc-ink:      #1F2125; /* bg     — H1 */
+  --toc-text:     #2A2D35; /* color5 — H2 */
+  --toc-gray:     #4D576A; /* color4 — H3, header */
+  --toc-soft:     #6C7689; /* color3 */
+  --toc-line:     #CED3DE; /* color1 — rail */
+  --toc-active:   #CED3DE; /* color1 — active item: light, one step darker */
+  --toc-active-ink: #1F2125; /* bg — text always dark */
+  --toc-active-muted: #4D576A; /* color4 — secondary text in the active item */
+  --toc-bump:     #4D576A; /* color4 — bump of the active item */
+
+  --code-bg:      #2A2D35; /* color5 */
+  --code-head:    #2A2D35; /* color5 — split from the body by a color4 rule */
+  --code-line:    #4D576A; /* color4 */
+  --code-ink:     #CED3DE;
+  --code-strong:  #FFFFFF;
+  --code-title:   #FFFFFF;
+  --code-number:  #FFFFFF;
+  --code-type:    #969FB0;
+  --code-string:  #969FB0;
+  --code-punct:   #6C7689;
+  --code-muted:   #6C7689; /* color3 — comments (bold): color4 on color5 would be unreadable */
+}

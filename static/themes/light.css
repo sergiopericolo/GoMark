@@ -1,0 +1,47 @@
+/*
+ * GoMark theme — light (default): color1 panels on a color2 frame.
+ * Overrides only the :root variables of theme.css.
+ */
+:root {
+  --bg:           #CED3DE; /* color1 — background */
+  --bg-alt:       #CED3DE; /* color1 — side columns, status bar */
+  --surface:      #CED3DE; /* color1 — widget cards */
+  --ink:          #1F2125; /* bg     — headings, emphasis */
+  --text:         #2A2D35; /* color5 — paragraph text */
+  --gray:         #4D576A; /* color4 — secondary text */
+  --gray-soft:    #6C7689; /* color3 — meta, ## markers */
+  --line:         #969FB0; /* color2 — borders */
+  --line-dash:    #969FB0; /* color2 */
+  --hover:        #CED3DE; /* color1 */
+  --frame:        #969FB0; /* color2 — frame between panels */
+  --active-bg:    #4D576A; /* color4 — dark boxes (brand, section, active item) */
+  --active-ink:   #FFFFFF; /* white */
+  --active-muted: #CED3DE; /* color1 */
+  --table-head:   #4D576A; /* color4 — table header (a bit lighter than code) */
+  --table-head-ink: #FFFFFF; /* white */
+  --heading:      #4D576A; /* color4 — headings h1…h6 */
+  --top-active:   #2A2D35; /* color5 — top bar box */
+  --file-active:  #6C7689; /* color3 — active file */
+  --toc-bg:       #CED3DE; /* color1 — outline panel (light) */
+  --toc-ink:      #1F2125; /* bg     — H1 */
+  --toc-text:     #2A2D35; /* color5 — H2 */
+  --toc-gray:     #4D576A; /* color4 — H3, header */
+  --toc-soft:     #6C7689; /* color3 */
+  --toc-line:     #969FB0; /* color2 — rail */
+  --toc-active:   #969FB0; /* color2 — active item: light, one step darker */
+  --toc-active-ink: #1F2125; /* bg — text always dark */
+  --toc-active-muted: #2A2D35; /* color5 — secondary text in the active item */
+  --toc-bump:     #4D576A; /* color4 — bump of the active item */
+
+  --code-bg:      #2A2D35; /* color5 */
+  --code-head:    #2A2D35; /* color5 — split from the body by a color4 rule */
+  --code-line:    #4D576A; /* color4 */
+  --code-ink:     #CED3DE; /* color1 — identifiers */
+  --code-strong:  #FFFFFF; /* white  — keywords (bold) */
+  --code-title:   #FFFFFF; /* white  — functions */
+  --code-number:  #FFFFFF; /* white  — numbers */
+  --code-type:    #969FB0; /* color2 — types (bold) */
+  --code-string:  #969FB0; /* color2 — strings */
+  --code-punct:   #6C7689; /* color3 — operators */
+  --code-muted:   #6C7689; /* color3 — comments (bold): color4 on color5 would be unreadable */
+}

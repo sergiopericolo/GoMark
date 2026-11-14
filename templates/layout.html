@@ -1,0 +1,221 @@
+{{/*
+  GoMark — layout.html, the only template. Data: engine.Context.
+  DepthMode: home | flat (3 columns) | multi (4 columns). Links are relative.
+*/ -}}
+<!DOCTYPE html>
+<html lang="{{.Lang}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{if .Site.Description}}<meta name="description" content="{{.Site.Description}}">{{end}}
+  {{if .Site.Author}}<meta name="author" content="{{.Site.Author}}">{{end}}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="{{.FontsURL}}" rel="stylesheet">
+  <title>{{if .Page}}{{.Page.Title}} · {{.Page.SectionTitle}}{{else if .ActiveSection}}{{.ActiveSection.Title}} · {{.Site.Title}}{{else}}{{.Site.Title}}{{end}}</title>
+  <link rel="stylesheet" href="{{.RootPrefix}}static/layout.css">
+  <link rel="stylesheet" href="{{.RootPrefix}}static/theme.css">
+  <link rel="stylesheet" href="{{.RootPrefix}}static/themes/{{.Site.Theme}}.css">
+  <style>:root { {{.StyleVars}} }</style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+<body data-depth="{{.DepthMode}}" data-theme="{{.Site.Theme}}"{{if ne .Style.CodeTheme "auto"}} data-code="{{.Style.CodeTheme}}"{{end}}{{if not .Nav.ShowToC}} data-toc="off"{{end}}{{if .Nav.StatusBar}} data-statusbar="on"{{end}}>
+
+  <header class="topbar">
+    <a class="brand" href="{{.RootPrefix}}index.html">{{.Site.Title}}</a>
+    <nav class="sections" aria-label="{{.T "sections"}}">
+      {{range $i, $s := .Sections}}
+      <a class="section-link{{if $.ActiveSection}}{{if eq $s.ID $.ActiveSection.ID}} active{{end}}{{end}}" href="{{$.RootPrefix}}{{$s.ID}}/index.html">
+        <span class="section-idx">{{printf "%02d" (add $i 1)}}</span>
+        <span class="section-title">{{$s.Title}}</span>
+      </a>
+      {{end}}
+    </nav>
+    <div class="topbar-end">
+      <span class="build-info">v{{.Version}}</span>
+    </div>
+  </header>
+
+  <main class="grid">
+
+    {{if eq .DepthMode "home"}}
+    <section class="col-content">
+      <div class="content-scroll home">
+        <div class="home-hero">
+          <div class="home-prompt"><span class="prompt-sign">$</span> cat README.md</div>
+          <h1 class="home-title">{{.Site.Title}}</h1>
+          {{if .Site.Description}}<p class="home-desc">{{.Site.Description}}</p>{{end}}
+        </div>
+        <div class="home-list">
+          <div class="index-label">{{.T "sections"}}</div>
+          <ul class="home-sections">
+            {{range $i, $s := .Sections}}
+            <li>
+              <a class="home-section" href="{{$.RootPrefix}}{{$s.ID}}/index.html">
+                <span class="home-idx">{{printf "%02d" (add $i 1)}}</span>
+                <span class="home-section-title">{{$s.Title}}</span>
+                <span class="home-path">~/{{$s.ID}}/</span>
+                <span class="home-depth">{{$.T "depth"}}={{$s.MaxDepth}}</span>
+                <span class="home-arrow" aria-hidden="true">→</span>
+              </a>
+            </li>
+            {{end}}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    {{else}}
+
+      {{if eq .DepthMode "multi"}}
+      <aside class="col-folders" aria-label="{{.T "folders"}}">
+        <div class="col-head">{{.T "folders"}}</div>
+        <div class="col-scroll">
+          <a class="tree-root{{if .CurrentFolder}}{{if eq .CurrentFolder.RelPath ""}} active{{end}}{{end}}" href="{{.SectionPrefix}}index.html">~/{{.ActiveSection.ID}}/</a>
+          {{template "folderTree" (dict "folders" .Folders "prefix" .SectionPrefix "current" .CurrentFolder "all" .Nav.FoldersOpen)}}
+        </div>
+      </aside>
+      {{end}}
+
+      <aside class="col-files" aria-label="{{.T "files"}}">
+        <div class="col-head">
+          <span>{{.T "files"}}</span>
+          <span class="col-head-path">{{.ActiveSection.ID}}/{{if .CurrentFolder}}{{if .CurrentFolder.RelPath}}{{.CurrentFolder.RelPath}}/{{end}}{{end}}</span>
+        </div>
+        <div class="col-scroll">
+          <ul class="file-list">
+            {{range .Pages}}
+            <li>
+              <a class="file-link{{if $.Page}}{{if eq .RelPath $.Page.RelPath}} active{{end}}{{end}}" href="{{$.SectionPrefix}}{{.URL}}">
+                <span class="file-name">{{.Title}}</span>
+                <span class="file-path">{{baseName .RelPath}}</span>
+              </a>
+            </li>
+            {{else}}
+            <li class="file-empty">{{$.T "empty_section"}}</li>
+            {{end}}
+          </ul>
+        </div>
+      </aside>
+
+      <section class="col-content" aria-label="{{.Site.Title}}">
+        <div class="content-scroll" id="content">
+          <div class="content-inner">
+          {{if .Page}}
+            <div class="page-head">
+              <div class="page-crumb"><span class="crumb-home">~</span>/{{.Page.SectionID}}/{{.Page.RelPath}}</div>
+              <h1 class="page-title">{{.Page.Title}}</h1>
+              <div class="page-meta" data-page-meta><span class="meta-tag">{{.Lang}}</span></div>
+            </div>
+            {{if .Page.Fallback}}<div class="page-notice" role="note">{{.T "untranslated"}}</div>{{end}}
+            <article class="page-body"{{if .Page.Fallback}} lang="{{.Page.SourceLang}}"{{end}}>{{.Page.Body}}</article>
+          {{else}}
+            <div class="page-head">
+              <div class="page-crumb"><span class="crumb-home">~</span>/{{.ActiveSection.ID}}/{{if .CurrentFolder}}{{if .CurrentFolder.RelPath}}{{.CurrentFolder.RelPath}}/{{end}}{{end}}</div>
+              <h1 class="page-title">{{if .CurrentFolder}}{{if .CurrentFolder.RelPath}}{{.CurrentFolder.Name}}/{{else}}{{.ActiveSection.Title}}{{end}}{{else}}{{.ActiveSection.Title}}{{end}}</h1>
+              <div class="page-meta"><span class="meta-tag">{{.Lang}}</span><span>{{.T "index"}}</span></div>
+            </div>
+            {{if .CurrentFolder}}{{if .CurrentFolder.SubFolders}}
+            <div class="index-folders">
+              <div class="index-label">{{.T "folders"}}</div>
+              <ul>
+                {{range .CurrentFolder.SubFolders}}
+                <li><a href="{{$.SectionPrefix}}{{.RelPath}}/index.html"><span class="idx-name">{{.Name}}/</span><span class="idx-path">{{len .Pages}} md</span></a></li>
+                {{end}}
+              </ul>
+            </div>
+            {{end}}{{end}}
+            <div class="index-files">
+              <div class="index-label">{{.T "pages"}}</div>
+              <ul>
+                {{range .Pages}}
+                <li><a href="{{$.SectionPrefix}}{{.URL}}"><span class="idx-name">{{.Title}}</span><span class="idx-path">{{.RelPath}}</span></a></li>
+                {{else}}
+                <li class="file-empty">{{$.T "empty_section"}}</li>
+                {{end}}
+              </ul>
+            </div>
+          {{end}}
+          </div>
+        </div>
+      </section>
+
+      <aside class="col-toc" aria-label="{{.T "on_this_page"}}">
+        <div class="col-head">{{.T "on_this_page"}}</div>
+        <div class="col-scroll">
+          {{if .Page}}{{if .Page.ToC}}
+            {{template "tocTree" .Page.ToC}}
+          {{else}}<p class="toc-empty">{{.T "no_toc"}}</p>{{end}}
+          {{else}}
+            <p class="toc-empty">{{.T "no_toc"}}</p>
+          {{end}}
+        </div>
+      </aside>
+
+    {{end}}
+  </main>
+
+  {{if .Nav.StatusBar}}
+  <footer class="statusbar" aria-hidden="true">
+    <span class="sb-mode">{{if .Page}}READ{{else if .ActiveSection}}INDEX{{else}}HOME{{end}}</span>
+    <span class="sb-path">{{if .Page}}{{.Page.SectionID}}/{{.Page.SourcePath}}{{else if .ActiveSection}}{{.ActiveSection.ID}}/{{if .CurrentFolder}}{{if .CurrentFolder.RelPath}}{{.CurrentFolder.RelPath}}/{{end}}{{end}}{{else}}~{{end}}</span>
+    <span class="sb-spacer"></span>
+    <span class="sb-item">{{.Lang}}</span>
+    <span class="sb-item">utf-8</span>
+    <span class="sb-item">{{if .Page}}markdown{{else}}html{{end}}</span>
+    <span class="sb-pos" data-scroll-pos>top</span>
+  </footer>
+  {{end}}
+
+  <script>
+    window.GOMARK = {
+      lang: "{{.Lang}}",
+      section: "{{if .ActiveSection}}{{.ActiveSection.ID}}{{end}}",
+      i18n: { copy: "{{.T "copy"}}", copied: "{{.T "copied"}}", words: "{{.T "words"}}", minRead: "{{.T "min_read"}}" }
+    };
+  </script>
+  <script src="{{.RootPrefix}}static/widgets.js"></script>
+  {{- range .Scripts}}
+  <script src="{{$.RootPrefix}}static/{{.}}"></script>
+  {{- end}}
+  <script src="{{.RootPrefix}}static/engine.js"></script>
+  <script src="{{.RootPrefix}}static/ui.js"></script>
+</body>
+</html>
+
+{{define "folderTree"}}
+{{$ctx := .}}
+<ul class="tree">
+  {{range $f := .folders}}
+  {{$open := or $ctx.all (isOpen $f $ctx.current)}}
+  <li class="tree-node{{if $f.SubFolders}} has-children{{end}}{{if $open}} open{{end}}" data-path="{{$f.RelPath}}">
+    <div class="tree-row">
+      {{if $f.SubFolders}}
+      <button class="tree-toggle" type="button" aria-expanded="{{if $open}}true{{else}}false{{end}}" aria-label="{{$f.Name}}"><span class="chev" aria-hidden="true"></span></button>
+      {{else}}
+      <span class="tree-leaf" aria-hidden="true"></span>
+      {{end}}
+      <a class="tree-folder{{if $ctx.current}}{{if eq $f.RelPath $ctx.current.RelPath}} active{{end}}{{end}}" href="{{$ctx.prefix}}{{$f.RelPath}}/index.html">
+        <span class="tree-name">{{$f.Name}}/</span>
+        {{if $f.Pages}}<span class="tree-count">{{len $f.Pages}}</span>{{end}}
+      </a>
+    </div>
+    {{if $f.SubFolders}}
+      {{template "folderTree" (dict "folders" $f.SubFolders "prefix" $ctx.prefix "current" $ctx.current "all" $ctx.all)}}
+    {{end}}
+  </li>
+  {{end}}
+</ul>
+{{end}}
+
+{{define "tocTree"}}
+<ul class="toc-tree">
+  {{range .}}
+  <li class="toc-item toc-l{{.Level}}">
+    <a href="#{{.ID}}">{{.Text}}</a>
+    {{if .Children}}{{template "tocTree" .Children}}{{end}}
+  </li>
+  {{end}}
+</ul>
+{{end}}

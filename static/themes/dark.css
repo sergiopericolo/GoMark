@@ -1,0 +1,47 @@
+/*
+ * GoMark theme — dark: color5 panels on a bg frame.
+ * Overrides only the :root variables of theme.css.
+ */
+:root {
+  --bg:           #2A2D35; /* color5 — panels */
+  --bg-alt:       #2A2D35; /* color5 */
+  --surface:      #2A2D35; /* color5 */
+  --ink:          #FFFFFF; /* white  — headings */
+  --text:         #CED3DE; /* color1 — paragraphs */
+  --gray:         #969FB0; /* color2 */
+  --gray-soft:    #6C7689; /* color3 */
+  --line:         #4D576A; /* color4 */
+  --line-dash:    #4D576A; /* color4 */
+  --hover:        #1F2125; /* bg */
+  --frame:        #1F2125; /* bg     — frame */
+  --active-bg:    #4D576A; /* color4 — boxes */
+  --active-ink:   #FFFFFF; /* white */
+  --active-muted: #CED3DE; /* color1 */
+  --table-head:   #1F2125; /* bg */
+  --table-head-ink: #FFFFFF; /* white */
+  --heading:      #969FB0; /* color2 — headings (color4 would be unreadable on color5) */
+  --top-active:   #1F2125; /* bg     — top bar box */
+  --file-active:  #6C7689; /* color3 — active file */
+  --toc-bg:       #2A2D35; /* color5 — like the other panels */
+  --toc-ink:      #FFFFFF; /* white */
+  --toc-text:     #CED3DE; /* color1 */
+  --toc-gray:     #969FB0; /* color2 */
+  --toc-soft:     #6C7689; /* color3 */
+  --toc-line:     #4D576A; /* color4 */
+  --toc-active:   #4D576A; /* color4 — active item */
+  --toc-active-ink: #FFFFFF; /* white */
+  --toc-active-muted: #CED3DE; /* color1 */
+  --toc-bump:     #CED3DE; /* color1 */
+
+  --code-bg:      #1F2125; /* bg */
+  --code-head:    #1F2125; /* bg */
+  --code-line:    #4D576A; /* color4 */
+  --code-ink:     #CED3DE; /* color1 */
+  --code-strong:  #FFFFFF; /* white */
+  --code-title:   #FFFFFF; /* white */
+  --code-number:  #FFFFFF; /* white */
+  --code-type:    #969FB0; /* color2 */
+  --code-string:  #969FB0; /* color2 */
+  --code-punct:   #6C7689; /* color3 */
+  --code-muted:   #6C7689; /* color3 */
+}
