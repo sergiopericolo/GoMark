@@ -33,6 +33,8 @@
   };
 
   Widgets.register('lorenz', {
+    title: 'Lorenz attractor',
+    description: 'A live simulation of the Lorenz system with sliders, Lyapunov exponent and diagnostic plots.',
     dependencies: [],
     example: {
       data: { sigma: 10, rho: 28, beta: 2.6667 },

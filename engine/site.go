@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	Version    = "1.1.0"
+	Version    = "1.2.0"
 	ConfigFile = "gomark.toml"
 )
 
@@ -46,6 +46,9 @@ func Open(dir string) (*Site, error) {
 		s.Warnings = append(s.Warnings, fmt.Sprintf("%s: unknown keys ignored: %s", ConfigFile, strings.Join(keys, ", ")))
 	}
 	cfg.normalize()
+	if err := s.loadLayouts(); err != nil {
+		return nil, err
+	}
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}

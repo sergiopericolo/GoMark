@@ -52,6 +52,7 @@
     if (title && first && first.textContent.trim() === title.textContent.trim()) first.hidden = true;
 
     Array.prototype.forEach.call(document.querySelectorAll('.page-body table'), function (tbl) {
+      if (tbl.closest('.wm')) return; // widgets lay out their own tables
       var wrap = document.createElement('div');
       wrap.className = 'table-wrap';
       tbl.parentNode.insertBefore(wrap, tbl);
@@ -62,7 +63,7 @@
   /* ─── Code blocks ───────────────────────────────────────────────────── */
   function initCode() {
     Array.prototype.forEach.call(document.querySelectorAll('.page-body pre > code'), function (code) {
-      if (/language-widget-/.test(code.className)) return;
+      if (/language-widget-/.test(code.className) || code.closest('.wm')) return; // widgets draw their own
       var pre = code.parentNode;
       var m = /language-([\w+#-]+)/.exec(code.className);
       var lang = m ? m[1] : 'text';

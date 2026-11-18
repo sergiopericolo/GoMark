@@ -1,4 +1,5 @@
 /*
+ * class: monochrome
  * GoMark theme — light (default): color1 panels on a color2 frame.
  * Overrides only the :root variables of theme.css.
  */
@@ -44,4 +45,27 @@
   --code-string:  #969FB0; /* color2 — strings */
   --code-punct:   #6C7689; /* color3 — operators */
   --code-muted:   #6C7689; /* color3 — comments (bold): color4 on color5 would be unreadable */
+
+  /* ─── WiMark — widgets read only these tokens, never their own colors ─── */
+  /* series 1…8: assigned in this order, never cycled; 9+ fold into "other" */
+  --wm-1: #1F2125; --wm-on-1: #FFFFFF; --wm-dash-1: none;
+  --wm-2: #4D576A; --wm-on-2: #FFFFFF; --wm-dash-2: none;
+  --wm-3: #6C7689; --wm-on-3: #FFFFFF; --wm-dash-3: none;
+  --wm-4: #2A2D35; --wm-on-4: #FFFFFF; --wm-dash-4: 7 4;
+  --wm-5: #4D576A; --wm-on-5: #FFFFFF; --wm-dash-5: 7 4;
+  --wm-6: #6C7689; --wm-on-6: #FFFFFF; --wm-dash-6: 7 4;
+  --wm-7: #1F2125; --wm-on-7: #FFFFFF; --wm-dash-7: 2 3;
+  --wm-8: #4D576A; --wm-on-8: #FFFFFF; --wm-dash-8: 2 3;
+  --wm-fill-4: url(#wm-tex-4); --wm-bg-4: repeating-linear-gradient(45deg, var(--wm-4) 0 2px, var(--surface) 2px 6px);
+  --wm-fill-5: url(#wm-tex-5); --wm-bg-5: repeating-linear-gradient(135deg, var(--wm-5) 0 2px, var(--surface) 2px 6px);
+  --wm-fill-6: url(#wm-tex-6); --wm-bg-6: repeating-linear-gradient(45deg, var(--wm-6) 0 2px, var(--surface) 2px 6px);
+  --wm-fill-7: url(#wm-tex-7); --wm-bg-7: repeating-linear-gradient(135deg, var(--wm-7) 0 2px, var(--surface) 2px 6px);
+  --wm-fill-8: url(#wm-tex-8); --wm-bg-8: repeating-linear-gradient(45deg, var(--wm-8) 0 2px, var(--surface) 2px 6px);
+  --wm-accent: #4D576A; --wm-on-accent: #FFFFFF;
+  --wm-pos: #2A2D35; --wm-neg: #1F2125; --wm-warn: #4D576A; --wm-info: #6C7689;  /* always with icon + label */
+  --wm-on-pos: #FFFFFF; --wm-on-neg: #FFFFFF; --wm-on-warn: #FFFFFF; --wm-on-info: #FFFFFF;
+  --wm-pos-soft: #FFFFFF; --wm-neg-soft: #FFFFFF; --wm-warn-soft: #FFFFFF; --wm-info-soft: #FFFFFF;
+  --wm-soft: #FFFFFF; --wm-grid: #969FB0;
+  /* sequential ramp: low → high, one hue */
+  --wm-heat-0: #FFFFFF; --wm-heat-1: #969FB0; --wm-heat-2: #6C7689; --wm-heat-3: #4D576A; --wm-heat-4: #1F2125;
 }

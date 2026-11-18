@@ -1,9 +1,8 @@
 /*
  * GoMark — theme.css
- * Look only, on a seven-color terminal palette:
- *   white #FFFFFF · color1 #CED3DE · color2 #969FB0 · color3 #6C7689
- *   color4 #4D576A · color5 #2A2D35 · bg #1F2125
- * No other colors, no transparency. Fonts and sizes come from [style].
+ * Look only. Colors come from the active theme in static/themes/, which
+ * declares its class (monochrome | bicolor | colored) and every color it uses;
+ * the fallbacks below are the light theme. Fonts and sizes come from [style].
  */
 
 /*
@@ -60,6 +59,30 @@
   --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --font-body: var(--sans);
+
+  /* ─── WiMark — widgets read only these tokens, never their own colors ─── */
+  /* series 1…8: assigned in this order, never cycled; 9+ fold into "other" */
+  --wm-1: #1F2125; --wm-on-1: #FFFFFF; --wm-dash-1: none;
+  --wm-2: #4D576A; --wm-on-2: #FFFFFF; --wm-dash-2: none;
+  --wm-3: #6C7689; --wm-on-3: #FFFFFF; --wm-dash-3: none;
+  --wm-4: #2A2D35; --wm-on-4: #FFFFFF; --wm-dash-4: 7 4;
+  --wm-5: #4D576A; --wm-on-5: #FFFFFF; --wm-dash-5: 7 4;
+  --wm-6: #6C7689; --wm-on-6: #FFFFFF; --wm-dash-6: 7 4;
+  --wm-7: #1F2125; --wm-on-7: #FFFFFF; --wm-dash-7: 2 3;
+  --wm-8: #4D576A; --wm-on-8: #FFFFFF; --wm-dash-8: 2 3;
+  --wm-accent: #4D576A; --wm-on-accent: #FFFFFF;
+  --wm-pos: #2A2D35; --wm-neg: #1F2125; --wm-warn: #4D576A; --wm-info: #6C7689;  /* always with icon + label */
+  --wm-on-pos: #FFFFFF; --wm-on-neg: #FFFFFF; --wm-on-warn: #FFFFFF; --wm-on-info: #FFFFFF;
+  --wm-pos-soft: #FFFFFF; --wm-neg-soft: #FFFFFF; --wm-warn-soft: #FFFFFF; --wm-info-soft: #FFFFFF;
+  --wm-soft: #FFFFFF; --wm-grid: #969FB0;
+  /* sequential ramp: low → high, one hue */
+  --wm-heat-0: #FFFFFF; --wm-heat-1: #969FB0; --wm-heat-2: #6C7689; --wm-heat-3: #4D576A; --wm-heat-4: #1F2125;
+
+  /* Derived: fills and swatches are solid unless the theme sets a texture. */
+  --wm-fill-1: var(--wm-1); --wm-fill-2: var(--wm-2); --wm-fill-3: var(--wm-3); --wm-fill-4: var(--wm-4);
+  --wm-fill-5: var(--wm-5); --wm-fill-6: var(--wm-6); --wm-fill-7: var(--wm-7); --wm-fill-8: var(--wm-8);
+  --wm-bg-1: var(--wm-1); --wm-bg-2: var(--wm-2); --wm-bg-3: var(--wm-3); --wm-bg-4: var(--wm-4);
+  --wm-bg-5: var(--wm-5); --wm-bg-6: var(--wm-6); --wm-bg-7: var(--wm-7); --wm-bg-8: var(--wm-8);
 }
 
 /* Code blocks forced by gomark.toml (code_theme = "light" | "dark") */
@@ -130,6 +153,13 @@ button { font: inherit; color: inherit; }
 .section-link.active .section-idx { color: var(--active-muted); }
 
 .build-info { color: var(--gray-soft); font-size: 11px; }
+.lang-link { color: var(--gray); font-size: 12px; font-weight: 600; border: 1px solid var(--line); border-radius: var(--radius); }
+.lang-link:hover { color: var(--ink); border-color: var(--gray-soft); }
+.lang-link.current { color: var(--active-ink); background: var(--top-active); border-color: var(--top-active); }
+.lang-select {
+  font: inherit; font-size: 12px; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
 
 /* ─── Columns ─────────────────────────────────────────────────────────────── */
 .col-folders, .col-files {
@@ -524,90 +554,6 @@ button { font: inherit; color: inherit; }
 .sb-mode { background: var(--active-bg); color: var(--active-ink); font-weight: 700; letter-spacing: 0.06em; border-radius: var(--radius); }
 .sb-item, .sb-pos { border-left: 1px solid var(--line); }
 .sb-pos { color: var(--ink); min-width: 6ch; justify-content: flex-end; }
-
-/* ─── Widget: KPI ─────────────────────────────────────────────────────────── */
-.w-kpi-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-.w-kpi-label { color: var(--gray); font-size: 12px; }
-.w-kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -0.04em; color: var(--ink); line-height: 1.2; margin-top: 0.25rem; font-variant-numbersc: tabular-nums; }
-.w-kpi-unit { color: var(--gray-soft); font-size: 13px; font-weight: 400; margin-left: 0.3rem; letter-spacing: 0; }
-.w-kpi-bar { background: var(--line); border-radius: 999px; }
-.w-kpi-fill { background: var(--ink); border-radius: 999px; }
-.w-kpi-note { color: var(--gray-soft); font-size: 11px; margin-top: 0.55rem; }
-
-/* ─── Widget: Timeline ────────────────────────────────────────────────────── */
-.w-timeline-vertical { border-left: 1px solid var(--line); }
-.w-timeline-item::before {
-  content: "";
-  position: absolute;
-  left: calc(-1.5rem - 4px);
-  top: 0.5em;
-  width: 7px;
-  height: 7px;
-  background: var(--bg);
-  border: 1px solid var(--ink);
-}
-.w-timeline-period { color: var(--gray-soft); font-size: 12px; }
-.w-timeline-title { font-weight: 700; color: var(--ink); }
-.w-timeline-desc { color: var(--text); font-family: var(--font-body); font-size: 14px; margin-top: 0.15rem; }
-.w-tag {
-  color: var(--gray);
-  font-size: 11px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-
-/* ─── Widget: Chart ───────────────────────────────────────────────────────── */
-.w-chart {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-
-/* ─── Widget: Lorenz ──────────────────────────────────────────────────────── */
-.w-lorenz-panel,
-.w-lorenz-controls,
-.w-lorenz-stat {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-.w-lorenz-title {
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  color: var(--gray);
-  border-bottom: 1px solid var(--line);
-}
-.w-lorenz-slabel { font-family: var(--mono); font-size: 0.72rem; color: var(--gray-soft); }
-.w-lorenz-sval { color: var(--ink); }
-.w-lorenz-stat-val { font-family: var(--mono); font-size: 0.85rem; color: var(--ink); margin-top: 0.2rem; }
-.w-lorenz-btn {
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  background: var(--active-bg);
-  color: var(--active-ink);
-  border: 1px solid var(--active-bg);
-  border-radius: var(--radius-sm);
-}
-.w-lorenz-btn:hover { background: var(--ink); border-color: var(--ink); }
-.w-lorenz-btn:focus-visible,
-.w-lorenz-slider input:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
-/* Restyled sliders: otherwise the browser would use its accent color. */
-.w-lorenz-slider input[type="range"] { -webkit-appearance: none; appearance: none; height: 16px; background: transparent; }
-.w-lorenz-slider input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: var(--line); }
-.w-lorenz-slider input[type="range"]::-moz-range-track { height: 2px; background: var(--line); }
-.w-lorenz-slider input[type="range"]::-moz-range-progress { height: 2px; background: var(--gray); }
-.w-lorenz-slider input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px;
-  border-radius: 50%; background: var(--gray); border: none;
-}
-.w-lorenz-slider input[type="range"]::-moz-range-thumb {
-  width: 12px; height: 12px; border-radius: 50%; background: var(--gray); border: none;
-}
 
 /* ─── Reduced motion ──────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {

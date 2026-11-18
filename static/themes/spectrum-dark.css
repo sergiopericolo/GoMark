@@ -1,0 +1,67 @@
+/*
+ * class: colored
+ * GoMark theme — spectrum-dark: dark panels, the same hues stepped for the dark surface.
+ * Every color of the theme is declared here; widgets read the --wm-* tokens.
+ */
+:root {
+  --bg:               #1A1A19;
+  --bg-alt:           #1A1A19;
+  --surface:          #1A1A19;
+  --ink:              #F0EFEC;
+  --text:             #F0EFEC;
+  --gray:             #C3C2B7;
+  --gray-soft:        #898781;
+  --line:             #2C2C2A;
+  --line-dash:        #383835;
+  --hover:            #0D0D0D;
+  --frame:            #0D0D0D;
+  --active-bg:        #1C5CAB;
+  --active-ink:       #FFFFFF;
+  --active-muted:     #CDE2FB;
+  --table-head:       #0D0D0D;
+  --table-head-ink:   #F0EFEC;
+  --heading:          #86B6EF;
+  --top-active:       #104281;
+  --file-active:      #1C5CAB;
+
+  --toc-bg:           #1A1A19;
+  --toc-ink:          #F0EFEC;
+  --toc-text:         #C3C2B7;
+  --toc-gray:         #C3C2B7;
+  --toc-soft:         #898781;
+  --toc-line:         #383835;
+  --toc-active:       #104281;
+  --toc-active-ink:   #F0EFEC;
+  --toc-active-muted: #86B6EF;
+  --toc-bump:         #3987E5;
+
+  --code-bg:          #0D0D0D;
+  --code-head:        #0D0D0D;
+  --code-line:        #383835;
+  --code-ink:         #F0EFEC;
+  --code-strong:      #9085E9;
+  --code-title:       #3987E5;
+  --code-number:      #C98500;
+  --code-type:        #E66767;
+  --code-string:      #199E70;
+  --code-punct:       #898781;
+  --code-muted:       #898781;
+
+  /* ─── WiMark — widgets read only these tokens, never their own colors ─── */
+  /* series 1…8: assigned in this order, never cycled; 9+ fold into "other" */
+  --wm-1: #3987E5; --wm-on-1: #FFFFFF; --wm-dash-1: none;
+  --wm-2: #D95926; --wm-on-2: #FFFFFF; --wm-dash-2: none;
+  --wm-3: #199E70; --wm-on-3: #FFFFFF; --wm-dash-3: none;
+  --wm-4: #C98500; --wm-on-4: #0B0B0B; --wm-dash-4: none;
+  --wm-5: #D55181; --wm-on-5: #FFFFFF; --wm-dash-5: none;
+  --wm-6: #008300; --wm-on-6: #FFFFFF; --wm-dash-6: none;
+  --wm-7: #9085E9; --wm-on-7: #0B0B0B; --wm-dash-7: none;
+  --wm-8: #E66767; --wm-on-8: #0B0B0B; --wm-dash-8: none;
+  --wm-accent: #3987E5; --wm-on-accent: #0B0B0B;
+  --wm-pos: #0CA30C; --wm-neg: #D03B3B; --wm-warn: #FAB219; --wm-info: #6DA7EC;  /* always with icon + label */
+  --wm-on-pos: #FFFFFF; --wm-on-neg: #FFFFFF; --wm-on-warn: #0B0B0B; --wm-on-info: #0B0B0B;
+  --wm-pos-soft: #142B14; --wm-neg-soft: #3A1A1A; --wm-warn-soft: #3A2E10; --wm-info-soft: #0D366B;
+  --wm-soft: #0D0D0D; --wm-grid: #2C2C2A;
+  /* sequential ramp: low → high, one hue */
+  --wm-heat-0: #0D366B; --wm-heat-1: #1C5CAB; --wm-heat-2: #3987E5; --wm-heat-3: #86B6EF; --wm-heat-4: #CDE2FB;
+}

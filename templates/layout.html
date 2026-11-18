@@ -1,6 +1,7 @@
 {{/*
   GoMark — layout.html, the only template. Data: engine.Context.
-  DepthMode: home | flat (3 columns) | multi (4 columns). Links are relative.
+  DepthMode: home | flat (3 columns) | multi (4 columns) | page (no columns).
+  Grid and Index come from the section's own layout. Links are relative.
 */ -}}
 <!DOCTYPE html>
 <html lang="{{.Lang}}">
@@ -15,12 +16,15 @@
   <title>{{if .Page}}{{.Page.Title}} · {{.Page.SectionTitle}}{{else if .ActiveSection}}{{.ActiveSection.Title}} · {{.Site.Title}}{{else}}{{.Site.Title}}{{end}}</title>
   <link rel="stylesheet" href="{{.RootPrefix}}static/layout.css">
   <link rel="stylesheet" href="{{.RootPrefix}}static/theme.css">
+  <link rel="stylesheet" href="{{.RootPrefix}}static/wimark.css">
   <link rel="stylesheet" href="{{.RootPrefix}}static/themes/{{.Site.Theme}}.css">
+  {{- range .Switch}}{{if not .Current}}
+  <link rel="alternate" hreflang="{{.Code}}" href="{{.Href}}">{{end}}{{end}}
   <style>:root { {{.StyleVars}} }</style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script>hljs.highlightAll();</script>
 </head>
-<body data-depth="{{.DepthMode}}" data-theme="{{.Site.Theme}}"{{if ne .Style.CodeTheme "auto"}} data-code="{{.Style.CodeTheme}}"{{end}}{{if not .Nav.ShowToC}} data-toc="off"{{end}}{{if .Nav.StatusBar}} data-statusbar="on"{{end}}>
+<body data-depth="{{.DepthMode}}" data-index="{{.Index}}" data-theme="{{.Site.Theme}}" data-theme-class="{{themeClass .Site.Theme}}"{{if ne .Style.CodeTheme "auto"}} data-code="{{.Style.CodeTheme}}"{{end}}{{if eq .Index "none"}} data-toc="off"{{end}}{{if .Nav.StatusBar}} data-statusbar="on"{{end}}>
 
   <header class="topbar">
     <a class="brand" href="{{.RootPrefix}}index.html">{{.Site.Title}}</a>
@@ -33,11 +37,12 @@
       {{end}}
     </nav>
     <div class="topbar-end">
+      {{if gt (len .Switch) 1}}{{template "langSwitch" .}}{{end}}
       <span class="build-info">v{{.Version}}</span>
     </div>
   </header>
 
-  <main class="grid">
+  <main class="grid" style="{{.Grid}}">
 
     {{if eq .DepthMode "home"}}
     <section class="col-content">
@@ -62,6 +67,15 @@
             </li>
             {{end}}
           </ul>
+        </div>
+      </div>
+    </section>
+
+    {{else if eq .DepthMode "page"}}
+    <section class="col-content" aria-label="{{.Site.Title}}">
+      <div class="content-scroll" id="content">
+        <div class="content-inner">
+          {{template "pageBody" .}}
         </div>
       </div>
     </section>
@@ -103,13 +117,7 @@
         <div class="content-scroll" id="content">
           <div class="content-inner">
           {{if .Page}}
-            <div class="page-head">
-              <div class="page-crumb"><span class="crumb-home">~</span>/{{.Page.SectionID}}/{{.Page.RelPath}}</div>
-              <h1 class="page-title">{{.Page.Title}}</h1>
-              <div class="page-meta" data-page-meta><span class="meta-tag">{{.Lang}}</span></div>
-            </div>
-            {{if .Page.Fallback}}<div class="page-notice" role="note">{{.T "untranslated"}}</div>{{end}}
-            <article class="page-body"{{if .Page.Fallback}} lang="{{.Page.SourceLang}}"{{end}}>{{.Page.Body}}</article>
+            {{template "pageBody" .}}
           {{else}}
             <div class="page-head">
               <div class="page-crumb"><span class="crumb-home">~</span>/{{.ActiveSection.ID}}/{{if .CurrentFolder}}{{if .CurrentFolder.RelPath}}{{.CurrentFolder.RelPath}}/{{end}}{{end}}</div>
@@ -159,7 +167,7 @@
   {{if .Nav.StatusBar}}
   <footer class="statusbar" aria-hidden="true">
     <span class="sb-mode">{{if .Page}}READ{{else if .ActiveSection}}INDEX{{else}}HOME{{end}}</span>
-    <span class="sb-path">{{if .Page}}{{.Page.SectionID}}/{{.Page.SourcePath}}{{else if .ActiveSection}}{{.ActiveSection.ID}}/{{if .CurrentFolder}}{{if .CurrentFolder.RelPath}}{{.CurrentFolder.RelPath}}/{{end}}{{end}}{{else}}~{{end}}</span>
+    <span class="sb-path">{{if .Page}}{{.Page.SourcePath}}{{else if .ActiveSection}}{{.ActiveSection.ID}}/{{if .CurrentFolder}}{{if .CurrentFolder.RelPath}}{{.CurrentFolder.RelPath}}/{{end}}{{end}}{{else}}~{{end}}</span>
     <span class="sb-spacer"></span>
     <span class="sb-item">{{.Lang}}</span>
     <span class="sb-item">utf-8</span>
@@ -171,8 +179,12 @@
   <script>
     window.GOMARK = {
       lang: "{{.Lang}}",
+      root: "{{.RootPrefix}}",
+      theme: "{{.Site.Theme}}",
       section: "{{if .ActiveSection}}{{.ActiveSection.ID}}{{end}}",
-      i18n: { copy: "{{.T "copy"}}", copied: "{{.T "copied"}}", words: "{{.T "words"}}", minRead: "{{.T "min_read"}}" }
+      i18n: { copy: "{{.T "copy"}}", copied: "{{.T "copied"}}", words: "{{.T "words"}}", minRead: "{{.T "min_read"}}",
+        data: "{{.T "wm_data"}}", search: "{{.T "wm_search"}}", noData: "{{.T "wm_no_data"}}", other: "{{.T "wm_other"}}",
+        total: "{{.T "wm_total"}}", show: "{{.T "wm_show"}}", hide: "{{.T "wm_hide"}}", reset: "{{.T "wm_reset"}}", all: "{{.T "wm_all"}}" }
     };
   </script>
   <script src="{{.RootPrefix}}static/widgets.js"></script>
@@ -207,6 +219,32 @@
   </li>
   {{end}}
 </ul>
+{{end}}
+
+{{/* Two languages: a toggle to the other one. More: a menu of all. */}}
+{{define "langSwitch"}}
+{{if eq (len .Switch) 2}}
+<nav class="lang-switch" aria-label="{{.T "language"}}">
+  {{range .Switch}}{{if .Current}}<span class="lang-link current" aria-current="true">{{.Code}}</span>{{else}}<a class="lang-link" href="{{.Href}}" hreflang="{{.Code}}" lang="{{.Code}}" title="{{.Label}}">{{.Code}}</a>{{end}}{{end}}
+</nav>
+{{else}}
+<label class="lang-switch">
+  <span class="lang-label">{{.T "language"}}</span>
+  <select class="lang-select" onchange="if (this.value) location.href = this.value">
+    {{range .Switch}}<option value="{{.Href}}" lang="{{.Code}}"{{if .Current}} selected{{end}}>{{.Label}}</option>{{end}}
+  </select>
+</label>
+{{end}}
+{{end}}
+
+{{define "pageBody"}}
+<div class="page-head">
+  <div class="page-crumb"><span class="crumb-home">~</span>/{{.Page.SectionID}}/{{.Page.RelPath}}</div>
+  <h1 class="page-title">{{.Page.Title}}</h1>
+  <div class="page-meta" data-page-meta><span class="meta-tag">{{.Lang}}</span></div>
+</div>
+{{if .Page.Fallback}}<div class="page-notice" role="note">{{.T "untranslated"}}</div>{{end}}
+<article class="page-body"{{if .Page.Fallback}} lang="{{.Page.SourceLang}}"{{end}}>{{.Page.Body}}</article>
 {{end}}
 
 {{define "tocTree"}}

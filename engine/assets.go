@@ -95,25 +95,24 @@ func (s *Site) NewWidget(rel string) (string, error) {
 }
 
 const widgetTemplate = `/*
- * NAME — describe the widget here.
+ * NAME — describe what the widget shows.
+ * data:   { "value": 42 }
+ * config: {}
  *
- * Payload (` + "```" + `widget-NAME):
- * { "data": { "value": 42 }, "config": {} }
+ * Rules (checked by gomark ai and the engine tests): no colors or fonts in
+ * JavaScript — give elements classes, use WiMark.series(i) for series and
+ * 'wm-' + WiMark.state(s) for states; build nodes with WiMark.h / WiMark.svg,
+ * never innerHTML. The theme decides the look.
  */
-(function (global) {
-  'use strict';
-
-  var Widgets = global.Widgets;
-  var h = Widgets.dom.h;
-
-  Widgets.register('NAME', {
-    dependencies: [],                      // e.g. { name: 'Chart', url: 'https://…' }
-    example: { data: { value: 42 }, config: {} },
-    mount: function (el, data, config) {
-      el.appendChild(h('div', 'w-NAME', 'NAME: ' + data.value));
-    }
-  });
-})(window);
+WiMark.register('NAME', {
+  title: 'NAME',
+  description: 'What the widget is for.',
+  example: { data: { value: 42 }, config: {} },
+  mount: function (el, data, config) {
+    var W = WiMark, h = W.h;
+    el.appendChild(h('div', 'wm-card wm-NAME', W.inline('**NAME**: ' + W.fmt(W.num(data.value)))));
+  }
+});
 `
 
 // Folder is the widget's folder ("" at the top level).

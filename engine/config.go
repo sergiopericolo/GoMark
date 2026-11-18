@@ -15,6 +15,7 @@ type Config struct {
 	Languages  []Language                   `toml:"languages"`
 	Style      Style                        `toml:"style"`
 	Navigation Nav                          `toml:"navigation"`
+	AI         AIConfig                     `toml:"ai"`
 	Strings    map[string]map[string]string `toml:"strings"`
 	Sections   []Section                    `toml:"sections"`
 }
@@ -56,12 +57,22 @@ type Nav struct {
 	StatusBar   bool `toml:"status_bar"`
 }
 
+// AIConfig is [ai]. Secrets and programs never come from the site: the API
+// key is ANTHROPIC_API_KEY, the local command GOMARK_AI_COMMAND.
+type AIConfig struct {
+	Provider   string `toml:"provider"`     // "anthropic" | "command"
+	Model      string `toml:"model"`        // anthropic model id
+	Effort     string `toml:"effort"`       // low | medium | high | xhigh | max
+	MaxInputKB int    `toml:"max_input_kb"` // largest input file sent
+}
+
 // Section is a top-level folder of every language. Title is per build language.
 type Section struct {
-	ID       string `toml:"id"`
-	Titles   Text   `toml:"title"`
-	MaxDepth int    `toml:"max_depth"`
-	Title    string `toml:"-"`
+	ID       string        `toml:"id"`
+	Titles   Text          `toml:"title"`
+	MaxDepth int           `toml:"max_depth"`
+	Title    string        `toml:"-"`
+	Layout   SectionLayout `toml:"-"` // sections/<id>.toml, see section.go
 }
 
 // Text is a per-language string: "…" (all languages) or { it = "…", en = "…" }.
@@ -113,6 +124,7 @@ func defaultConfig() *Config {
 			Radius: 4, CodeTheme: "auto",
 		},
 		Navigation: Nav{ShowToC: true, StatusBar: true},
+		AI:         AIConfig{Provider: "anthropic", Model: "claude-opus-5-5", Effort: "high", MaxInputKB: 10240},
 	}
 }
 
@@ -127,6 +139,12 @@ func (c *Config) normalize() {
 	or(&c.Site.Title, def.Site.Title)
 	or(&c.Site.Theme, def.Site.Theme)
 	or(&c.Site.Out, def.Site.Out)
+	or(&c.AI.Provider, def.AI.Provider)
+	or(&c.AI.Model, def.AI.Model)
+	or(&c.AI.Effort, def.AI.Effort)
+	if c.AI.MaxInputKB <= 0 {
+		c.AI.MaxInputKB = def.AI.MaxInputKB
+	}
 	if len(c.Languages) == 0 {
 		c.Languages = []Language{{Code: "en", Label: "English"}}
 	}
@@ -136,29 +154,7 @@ func (c *Config) normalize() {
 		or(&l.Label, strings.ToUpper(l.Code))
 	}
 
-	s := &c.Style
-	or(&s.FontMono, def.Style.FontMono)
-	or(&s.FontSans, def.Style.FontSans)
-	if s.BodyFont != "sans" {
-		s.BodyFont = "mono"
-	}
-	clamp := func(v *int, lo, hi, d int) {
-		if *v == 0 {
-			*v = d
-		}
-		*v = min(max(*v, lo), hi)
-	}
-	clamp(&s.FontSize, 11, 22, def.Style.FontSize)
-	clamp(&s.ContentWidth, 480, 1400, def.Style.ContentWidth)
-	clamp(&s.SidebarWidth, 160, 480, def.Style.SidebarWidth)
-	clamp(&s.FoldersWidth, 140, 480, def.Style.FoldersWidth)
-	clamp(&s.TocWidth, 160, 420, def.Style.TocWidth)
-	if s.Radius < 0 || s.Radius > 24 {
-		s.Radius = def.Style.Radius
-	}
-	if s.CodeTheme != "light" && s.CodeTheme != "dark" {
-		s.CodeTheme = "auto"
-	}
+	c.Style.normalize()
 
 	for i := range c.Sections {
 		sec := &c.Sections[i]
@@ -170,6 +166,40 @@ func (c *Config) normalize() {
 		}
 		sec.Title = sec.Titles.For(c.DefaultLang(), c.DefaultLang())
 		sec.MaxDepth = max(sec.MaxDepth, 1)
+		// Overrides were checked when sections/<id>.toml was read.
+		_ = sec.Layout.resolve(c.Style)
+	}
+}
+
+// normalize fills defaults and clamps out-of-range values of [style].
+func (s *Style) normalize() {
+	def := defaultConfig().Style
+	or := func(v *string, d string) {
+		if *v == "" {
+			*v = d
+		}
+	}
+	or(&s.FontMono, def.FontMono)
+	or(&s.FontSans, def.FontSans)
+	if s.BodyFont != "sans" {
+		s.BodyFont = "mono"
+	}
+	clamp := func(v *int, lo, hi, d int) {
+		if *v == 0 {
+			*v = d
+		}
+		*v = min(max(*v, lo), hi)
+	}
+	clamp(&s.FontSize, 11, 22, def.FontSize)
+	clamp(&s.ContentWidth, 480, 1400, def.ContentWidth)
+	clamp(&s.SidebarWidth, 160, 480, def.SidebarWidth)
+	clamp(&s.FoldersWidth, 140, 480, def.FoldersWidth)
+	clamp(&s.TocWidth, 160, 420, def.TocWidth)
+	if s.Radius < 0 || s.Radius > 24 {
+		s.Radius = def.Radius
+	}
+	if s.CodeTheme != "light" && s.CodeTheme != "dark" {
+		s.CodeTheme = "auto"
 	}
 }
 
@@ -199,6 +229,9 @@ func (c *Config) validate() error {
 			return fmt.Errorf("duplicate section id %q", s.ID)
 		}
 		seen["#"+s.ID] = true
+		if err := s.Layout.validate(s.ID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -310,6 +343,15 @@ description = {{q .Description}}
 {{with .Navigation}}{{kv "folders_open" .FoldersOpen "true = all folders open; false = current branch only"}}
 {{kv "show_toc" .ShowToC "\"On this page\" column"}}
 {{kv "status_bar" .StatusBar "bottom status bar"}}{{end}}
+
+# ─── AI (gomark ai) ──────────────────────────────────────────────────────────
+# Proposals only: nothing is written until "gomark ai apply". The API key is
+# read from ANTHROPIC_API_KEY; the command provider runs GOMARK_AI_COMMAND.
+[ai]
+{{with .AI}}{{kv "provider" (q .Provider) "\"anthropic\" | \"command\""}}
+{{kv "model" (q .Model) "model for the anthropic provider"}}
+{{kv "effort" (q .Effort) "low | medium | high | xhigh | max"}}
+{{kv "max_input_kb" .MaxInputKB "largest file sent to the AI"}}{{end}}
 {{if .Strings}}
 # ─── Interface strings (overrides) ───────────────────────────────────────────
 {{range $l, $m := .Strings}}[strings.{{$l}}]

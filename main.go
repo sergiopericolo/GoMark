@@ -50,7 +50,7 @@ type command struct {
 
 var commands = []command{
 	{"init", "[dir] [title]", "create a site (default: this folder)", cmdInit},
-	{"build", "", "build one language into the output folder", cmdBuild},
+	{"build", "", "build every language (or -lang) into the output folder", cmdBuild},
 	{"serve", "", "serve the output folder", cmdServe},
 	{"render", "[section[/path]]", "print the HTML of one page", cmdRender},
 	{"publish", "", "git add, commit and push the output folder", cmdPublish},
@@ -61,8 +61,10 @@ var commands = []command{
 	{"config", "[key [value]]", "list, read or set a setting", cmdConfig},
 	{"section", "[add <id> [title] [depth] | rm <id>]", "list, add or remove sections", cmdSection},
 	{"lang", "[add <code> [label] | rm <code>]", "list, add or remove languages", cmdLang},
-	{"theme", "[name]", "list or set the theme", cmdTheme},
-	{"widget", "[new <name> | preview [name…]]", "list, create (in the site) or preview widgets", cmdWidget},
+	{"theme", "[name | check]", "list themes with their class, set one, or check them all", cmdTheme},
+	{"image", "<in> <out> [theme]", "compress an image; with a theme, map it to the theme's palette", cmdImage},
+	{"ai", "<translate|convert|widget|list|show|apply|discard> …", "AI proposals, checked, applied only on request", cmdAI},
+	{"widget", "[new <name> | catalog | preview]", "list WiMarks, create one in the site, write or serve the catalog", cmdWidget},
 }
 
 const flagsHelp = `Flags (anywhere on the line):
@@ -72,7 +74,9 @@ const flagsHelp = `Flags (anywhere on the line):
   -addr <addr>   serve / widget preview address (default :8080)
   -build         serve: build first
   -delete        section rm: delete the folders too
-  -force         init: rewrite an existing gomark.toml
+  -force         init: rewrite an existing gomark.toml; ai apply: replace a file
+  -width <px>    image: maximum width (smaller images are not enlarged)
+  -from <code>   ai translate: source language (default: the site's first)
   -m <msg>       publish: commit message
 `
 

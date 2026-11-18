@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"html/template"
 	"net/url"
@@ -9,7 +10,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 )
 
@@ -39,9 +39,12 @@ type Context struct {
 	FontsURL      string
 	Sections      []Section
 	ActiveSection *Section
-	DepthMode     string // "home" | "flat" | "multi"
-	RootPrefix    string // root of the output (sections and static/)
-	SectionPrefix string // root of the current section
+	DepthMode     string       // "home" | "flat" | "multi" | "page"
+	Index         string       // "On this page" column: "right" | "left" | "none"
+	Switch        []LangLink   // language switch; empty in a single-language build
+	Grid          template.CSS // body grid-template-columns of this page
+	RootPrefix    string       // root of the output (sections and static/)
+	SectionPrefix string       // root of the current section
 	Folders       []*Folder
 	CurrentFolder *Folder
 	Pages         []*Page
@@ -68,6 +71,8 @@ type builder struct {
 	sections []Section
 	strings  map[string]string
 	widgets  map[string]string // widget name → script path
+	media    map[string][]byte // processed images (output path → bytes); nil outside a build
+	warnings []string
 }
 
 func (s *Site) builder(lang string) (*builder, error) {
@@ -83,7 +88,7 @@ func (s *Site) builder(lang string) (*builder, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &builder{s, lang, tmpl, s.Config.SectionsFor(lang), uiStrings(s.Config, lang), map[string]string{}}
+	r := &builder{site: s, lang: lang, tmpl: tmpl, sections: s.Config.SectionsFor(lang), strings: uiStrings(s.Config, lang), widgets: map[string]string{}}
 	for _, w := range ws {
 		r.widgets[w.Name] = w.Path
 	}
@@ -103,7 +108,26 @@ func (r *builder) context(depth int) *Context {
 		Site: site, Lang: r.lang, Style: cfg.Style, Nav: cfg.Navigation,
 		StyleVars: styleVars(cfg.Style), FontsURL: fontsURL(cfg.Style),
 		Sections: r.sections, RootPrefix: relPrefix(depth), Version: Version, strings: r.strings,
+		Index: indexNone, Grid: "--grid: minmax(0, 1fr); --grid-medium: minmax(0, 1fr)",
 	}
+}
+
+// LangLink is one entry of the language switch.
+type LangLink struct {
+	Code, Label, Href string
+	Current           bool
+}
+
+// indexPage is the section's index.md, the whole content of a page section.
+// Without one, the page is empty.
+func (r *builder) indexPage(t *Tree, sec Section) (*Page, error) {
+	for _, p := range t.Root.Pages {
+		if p.RelPath == "index.md" {
+			return p, nil
+		}
+	}
+	return &Page{Title: sec.Title, SectionID: sec.ID, SectionTitle: sec.Title, RelPath: "index.md",
+		URL: "index.html"}, nil
 }
 
 // section scans sec and compiles its pages.
@@ -116,6 +140,12 @@ func (r *builder) section(sec Section) (t *Tree, pages []*Page, missing int, err
 		b, err := os.ReadFile(r.site.path(filepath.FromSlash(src)))
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("parse %s: %w", src, err)
+		}
+		if r.media != nil {
+			theme := cmp.Or(sec.Layout.Theme, r.site.Config.Site.Theme)
+			var warns []string
+			b, warns = r.processImages(b, theme, src)
+			r.warnings = append(r.warnings, warns...)
 		}
 		body, toc, title := renderMarkdown(b)
 		noExt := strings.TrimSuffix(key, path.Ext(key))
@@ -156,6 +186,7 @@ func (r *builder) in(t *Tree, f *Folder, depth int) *Context {
 	ctx.Folders = t.Root.SubFolders
 	ctx.CurrentFolder = f
 	ctx.Pages = f.Pages
+	ctx.section(&t.Section, ctx.DepthMode)
 	return ctx
 }
 
@@ -164,12 +195,27 @@ func (r *builder) folder(t *Tree, f *Folder) *Context { return r.in(t, f, f.Dept
 func (r *builder) page(t *Tree, p *Page) *Context {
 	ctx := r.in(t, t.Folder(parent(p.RelPath)), p.Depth)
 	ctx.Page = p
+	r.scripts(ctx, p)
+	return ctx
+}
+
+// sectionPage is a page section: one page at the section root, no columns.
+func (r *builder) sectionPage(t *Tree, p *Page) *Context {
+	ctx := r.in(t, t.Root, 0)
+	ctx.DepthMode = "page"
+	ctx.section(&t.Section, ctx.DepthMode)
+	ctx.Page = p
+	r.scripts(ctx, p)
+	return ctx
+}
+
+// scripts adds the widget scripts the page uses.
+func (r *builder) scripts(ctx *Context, p *Page) {
 	for _, w := range p.Widgets {
 		if s, ok := r.widgets[w]; ok {
 			ctx.Scripts = append(ctx.Scripts, s)
 		}
 	}
-	return ctx
 }
 
 func (r *builder) exec(ctx *Context) ([]byte, error) {
@@ -190,10 +236,58 @@ type Stats struct {
 	HTMLFiles int
 	Assets    int
 	Skipped   []string // entries beyond max_depth
+	Images    int      // files written to media/ (copied or processed)
+	Warnings  []string // problems that did not stop the build
 }
 
-// Build compiles one language into out ("" = [site] out), emptied first.
-func (s *Site) Build(lang, out string) (*Stats, error) {
+// Build compiles the site into out ("" = [site] out). A one-language site
+// goes straight into out. With more languages, each one goes to out/<code>/
+// with a language switch on every page (two languages: a toggle; more: a
+// menu), and out/index.html opens the default language. Pages missing in a
+// language are copied with a notice, so every page exists in every language.
+// lang ("" = all) rebuilds one language only.
+func (s *Site) Build(lang, out string) ([]*Stats, error) {
+	if out == "" {
+		out = s.Out()
+	}
+	langs := s.Config.LangCodes()
+	if lang != "" {
+		l, err := s.Lang(lang)
+		if err != nil {
+			return nil, err
+		}
+		langs = []string{l}
+	}
+	if len(s.Config.Languages) == 1 {
+		st, err := s.build(langs[0], out, false)
+		if err != nil {
+			return nil, err
+		}
+		return []*Stats{st}, nil
+	}
+	if lang == "" {
+		if err := cleanDir(out); err != nil {
+			return nil, fmt.Errorf("cannot clean output dir: %w", err)
+		}
+	}
+	var all []*Stats
+	for _, l := range langs {
+		st, err := s.build(l, filepath.Join(out, l), true)
+		if err != nil {
+			return all, err
+		}
+		all = append(all, st)
+	}
+	def := s.Config.DefaultLang() + "/index.html"
+	root := fmt.Sprintf(`<!doctype html><meta charset="utf-8"><title>%s</title>`+
+		`<meta http-equiv="refresh" content="0; url=%s"><a href="%s">%s</a>`+"\n",
+		s.Config.Site.Title, def, def, def)
+	return all, os.WriteFile(filepath.Join(out, "index.html"), []byte(root), 0o644)
+}
+
+// build compiles one language into out, emptied first; switches adds the
+// language switch to every page.
+func (s *Site) build(lang, out string, switches bool) (*Stats, error) {
 	r, err := s.builder(lang)
 	if err != nil {
 		return nil, err
@@ -205,7 +299,11 @@ func (s *Site) Build(lang, out string) (*Stats, error) {
 		return nil, fmt.Errorf("cannot clean output dir: %w", err)
 	}
 	st := &Stats{Lang: r.lang, Out: out}
+	r.media = map[string][]byte{}
 	write := func(rel string, ctx *Context) error {
+		if switches {
+			ctx.Switch = r.switchTo(rel)
+		}
 		b, err := r.exec(ctx)
 		if err != nil {
 			return err
@@ -220,13 +318,20 @@ func (s *Site) Build(lang, out string) (*Stats, error) {
 
 	for _, sec := range r.sections {
 		t, pages, missing, err := r.section(sec)
-		if err == nil {
+		switch {
+		case err != nil:
+		case sec.Layout.Layout == LayoutPage:
+			var p *Page
+			if p, err = r.indexPage(t, sec); err == nil {
+				err = write(path.Join(sec.ID, "index.html"), r.sectionPage(t, p))
+			}
+		default:
 			err = eachFolder(t.Root, func(f *Folder) error {
 				return write(path.Join(sec.ID, f.RelPath, "index.html"), r.folder(t, f))
 			})
-		}
-		for i := 0; err == nil && i < len(pages); i++ {
-			err = write(path.Join(sec.ID, pages[i].URL), r.page(t, pages[i]))
+			for i := 0; err == nil && i < len(pages); i++ {
+				err = write(path.Join(sec.ID, pages[i].URL), r.page(t, pages[i]))
+			}
 		}
 		if err != nil {
 			return nil, fmt.Errorf("[%s] section %q: %w", r.lang, sec.ID, err)
@@ -242,7 +347,26 @@ func (s *Site) Build(lang, out string) (*Stats, error) {
 	if st.Assets, err = s.copyStatic(out); err != nil {
 		return nil, fmt.Errorf("static assets: %w", err)
 	}
+	if st.Images, err = r.copyMedia(out); err != nil {
+		return nil, fmt.Errorf("media: %w", err)
+	}
+	st.Warnings = r.warnings
 	return st, nil
+}
+
+// switchTo lists every language, with the same page (rel, from the language
+// folder) as its link. The current language has no link.
+func (r *builder) switchTo(rel string) []LangLink {
+	depth := strings.Count(rel, "/") + 1
+	var out []LangLink
+	for _, l := range r.site.Config.Languages {
+		link := LangLink{Code: l.Code, Label: l.Label, Current: l.Code == r.lang}
+		if !link.Current {
+			link.Href = strings.Repeat("../", depth) + l.Code + "/" + rel
+		}
+		out = append(out, link)
+	}
+	return out
 }
 
 // Render compiles one page in memory: "" (home), "<section>",
@@ -265,6 +389,13 @@ func (s *Site) Render(lang, target string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		if sec.Layout.Layout == LayoutPage && rel == "" {
+			p, err := r.indexPage(t, sec)
+			if err != nil {
+				return nil, err
+			}
+			return r.exec(r.sectionPage(t, p))
+		}
 		for _, p := range pages {
 			if p.RelPath == rel {
 				return r.exec(r.page(t, p))
@@ -278,43 +409,12 @@ func (s *Site) Render(lang, target string) ([]byte, error) {
 	return nil, fmt.Errorf("section %q is not defined in %s", id, ConfigFile)
 }
 
-// PreviewWidgets renders a gallery of the named widgets (all if none) with
-// their examples. s may be nil. Links are relative to "/".
-func (s *Site) PreviewWidgets(names ...string) ([]byte, error) {
-	if s == nil {
-		s = &Site{Config: defaultConfig()}
-		s.Config.normalize()
-	}
-	ws, err := s.Widgets()
-	if err != nil {
-		return nil, err
-	}
-	src := "# Widgets\n"
-	for _, w := range ws {
-		if len(names) == 0 || slices.Contains(names, w.Name) {
-			src += fmt.Sprintf("\n## %s\n\n```widget-%s\n```\n", strings.TrimSuffix(w.Path, ".js")[len("widgets/"):], w.Name)
-		}
-	}
-	r, err := s.builder("")
-	if err != nil {
-		return nil, err
-	}
-	body, toc, _ := renderMarkdown([]byte(src))
-	sec := Section{ID: "widgets", Title: "Widgets", MaxDepth: 1}
-	t := &Tree{Section: sec, Root: &Folder{Name: sec.Title}}
-	p := &Page{Title: "Widgets", SectionID: sec.ID, SectionTitle: sec.Title, RelPath: "index.md",
-		URL: "index.html", Body: body, ToC: toc, Widgets: detectWidgets([]byte(src))}
-	t.Root.Pages = []*Page{p}
-	ctx := r.page(t, p)
-	ctx.RootPrefix, ctx.SectionPrefix, ctx.Sections = "./", "./", nil
-	return r.exec(ctx)
-}
-
 // ─── Template support ───────────────────────────────────────────────────────
 
 var funcs = template.FuncMap{
-	"add":      func(a, b int) int { return a + b },
-	"baseName": base,
+	"add":        func(a, b int) int { return a + b },
+	"baseName":   base,
+	"themeClass": ThemeClass,
 	// dict passes several values to a recursive sub-template.
 	"dict": func(kv ...any) map[string]any {
 		m := map[string]any{}

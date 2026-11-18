@@ -149,6 +149,9 @@ func (s *Site) AddSection(id, title string, depth int) error {
 	if err := s.Save(); err != nil {
 		return err
 	}
+	if err := s.saveLayout(*s.Config.Section(id)); err != nil {
+		return err
+	}
 	for _, l := range s.Config.LangCodes() {
 		if err := os.MkdirAll(s.path(l, id), 0o755); err != nil {
 			return err
@@ -165,6 +168,9 @@ func (s *Site) RemoveSection(id string, deleteDirs bool) error {
 	}
 	s.Config.Sections = slices.Delete(s.Config.Sections, i, i+1)
 	if err := s.Save(); err != nil {
+		return err
+	}
+	if err := s.removeLayout(id); err != nil {
 		return err
 	}
 	for _, l := range s.Config.LangCodes() {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -26,7 +27,9 @@ func (u usageError) Error() string { return string(u) }
 type ctx struct {
 	args                       []string
 	site, lang, out, addr, msg string
+	from                       string
 	build, del, force          bool
+	width                      int
 }
 
 // parse reads the shared flags, allowed anywhere.
@@ -36,12 +39,14 @@ func parse(c command, args []string) (*ctx, error) {
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&cx.site, "site", "", "")
 	fs.StringVar(&cx.lang, "lang", "", "")
+	fs.StringVar(&cx.from, "from", "", "")
 	fs.StringVar(&cx.out, "out", "", "")
 	fs.StringVar(&cx.addr, "addr", ":8080", "")
 	fs.StringVar(&cx.msg, "m", "update", "")
 	fs.BoolVar(&cx.build, "build", false, "")
 	fs.BoolVar(&cx.del, "delete", false, "")
 	fs.BoolVar(&cx.force, "force", false, "")
+	fs.IntVar(&cx.width, "width", 0, "")
 	for {
 		if err := fs.Parse(args); errors.Is(err, flag.ErrHelp) {
 			fmt.Printf("usage: %s\n%s\n\n%s", usage(c), c.help, flagsHelp)
@@ -136,16 +141,26 @@ func cmdBuild(cx *ctx) error {
 		return err
 	}
 	start := time.Now()
-	st, err := s.Build(cx.lang, cx.out)
+	all, err := s.Build(cx.lang, cx.out)
 	if err != nil {
 		return err
 	}
-	warnSkipped(st.Skipped)
-	fmt.Printf("built %s → %s: %d pages", st.Lang, rel(st.Out), st.Pages)
-	if st.Missing > 0 {
-		fmt.Printf(" (%d copied from another language)", st.Missing)
+	for _, st := range all {
+		warnSkipped(st.Skipped)
+		fmt.Printf("built %s → %s: %d pages", st.Lang, rel(st.Out), st.Pages)
+		if st.Missing > 0 {
+			fmt.Printf(" (%d shown from another language, with a notice)", st.Missing)
+		}
+		fmt.Printf(", %d files, %d assets", st.HTMLFiles, st.Assets)
+		if st.Images > 0 {
+			fmt.Printf(", %d images", st.Images)
+		}
+		fmt.Println()
+		for _, w := range st.Warnings {
+			fmt.Fprintln(os.Stderr, "warning:", w)
+		}
 	}
-	fmt.Printf(", %d files, %d assets in %d ms\n", st.HTMLFiles, st.Assets, time.Since(start).Milliseconds())
+	fmt.Printf("done in %d ms\n", time.Since(start).Milliseconds())
 	return nil
 }
 
@@ -446,30 +461,73 @@ func cmdTheme(cx *ctx) error {
 	if err != nil {
 		return err
 	}
-	if name := cx.arg(0); name != "" {
+	switch name := cx.arg(0); name {
+	case "":
+		for _, t := range engine.Themes() {
+			fmt.Printf("%s %-16s %s\n", map[bool]string{true: "*", false: " "}[t == s.Config.Site.Theme], t, engine.ThemeClass(t))
+		}
+	case "check":
+		bad := 0
+		for _, t := range engine.Themes() {
+			info, err := engine.CheckTheme(t)
+			if err != nil {
+				return err
+			}
+			status := "ok"
+			if len(info.Problems) > 0 {
+				status, bad = strings.Join(info.Problems, "; "), bad+1
+			}
+			fmt.Printf("%-16s %-11s %d hue families, %2d colors  %s\n", t, info.Class, info.Families, info.Colors, status)
+		}
+		if bad > 0 {
+			return fmt.Errorf("%d theme(s) with problems", bad)
+		}
+	default:
 		if err := s.SetTheme(name); err != nil {
 			return err
 		}
-		fmt.Println("theme", name)
-		return nil
-	}
-	for _, t := range engine.Themes() {
-		fmt.Println(map[bool]string{true: "*", false: " "}[t == s.Config.Site.Theme], t)
+		fmt.Println("theme", name, "("+engine.ThemeClass(name)+")")
 	}
 	return nil
+}
+
+func cmdImage(cx *ctx) error {
+	if err := cx.arity(2, 3); err != nil {
+		return err
+	}
+	st, err := engine.CompressImage(cx.arg(0), cx.arg(1), engine.ImageOptions{Palette: cx.arg(2), MaxWidth: cx.width})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s → %s: %s → %s (%d%%)", cx.arg(0), cx.arg(1), size(st.Before), size(st.After), 100*st.After/max(st.Before, 1))
+	if st.Colors > 0 {
+		fmt.Printf(", %d colors of theme %s", st.Colors, cx.arg(2))
+	}
+	fmt.Printf(", %d×%d\n", st.Width, st.Height)
+	return nil
+}
+
+func size(n int64) string {
+	if n < 1024 {
+		return fmt.Sprintf("%d B", n)
+	}
+	return fmt.Sprintf("%.1f KB", float64(n)/1024)
 }
 
 func cmdWidget(cx *ctx) error {
 	s, _ := cx.open() // outside a site: engine widgets only, default look
 	switch cx.arg(0) {
 	case "":
-		ws, err := s.Widgets()
-		for _, w := range ws {
-			from := "engine  static/" + w.Path
-			if w.Site {
-				from = "site    " + w.Path
+		classes, err := s.CatalogClasses()
+		for _, c := range classes {
+			fmt.Printf("%s (%d)\n", c.Title, len(c.Widgets))
+			for _, w := range c.Widgets {
+				from := "static/" + w.Path
+				if w.Site {
+					from = w.Path
+				}
+				fmt.Printf("  %-14s %s\n", w.Name, from)
 			}
-			fmt.Printf("%-12s %s\n", w.Name, from)
 		}
 		return err
 	case "new":
@@ -481,17 +539,36 @@ func cmdWidget(cx *ctx) error {
 		}
 		file, err := s.NewWidget(cx.arg(1))
 		if err == nil {
-			fmt.Printf("created %s\nuse it with a ```widget-%s block; preview: gomark widget preview %s\n", file, path.Base(strings.TrimSuffix(file, ".js")), path.Base(strings.TrimSuffix(file, ".js")))
+			name := path.Base(strings.TrimSuffix(file, ".js"))
+			fmt.Printf("created %s\nuse it with a ```widget-%s block; see it in: gomark widget preview\n", file, name)
 		}
 		return err
-	case "preview":
-		names := cx.args[1:]
-		if _, err := s.PreviewWidgets(names...); err != nil {
+	case "catalog":
+		if err := cx.arity(1, 1); err != nil {
 			return err
 		}
-		fmt.Printf("widget preview on http://localhost%s (reload to see changes)\n", cx.addr)
+		out := cx.out
+		if out == "" {
+			out = "wimark-catalog"
+			if s != nil {
+				out = filepath.Join(s.Dir, "wimark-catalog")
+			}
+		}
+		if err := s.WriteCatalog(out); err != nil {
+			return err
+		}
+		fmt.Printf("catalog written to %s/index.html\n", rel(out))
+		return nil
+	case "preview":
+		if err := cx.arity(1, 1); err != nil {
+			return err
+		}
+		if _, err := s.Catalog(); err != nil {
+			return err
+		}
+		fmt.Printf("WiMark catalog on http://localhost%s (reload to see changes)\n", cx.addr)
 		return http.ListenAndServe(cx.addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			b, err := s.PreviewWidgets(names...)
+			b, err := s.Catalog()
 			if p := strings.TrimPrefix(r.URL.Path, "/"); p != "" && p != "index.html" {
 				b, err = s.Asset(p)
 				w.Header().Set("Content-Type", mime.TypeByExtension(path.Ext(p)))
@@ -504,4 +581,160 @@ func cmdWidget(cx *ctx) error {
 		}))
 	}
 	return usageError("unknown subcommand " + strconv.Quote(cx.arg(0)))
+}
+
+// ─── AI ─────────────────────────────────────────────────────────────────────
+
+func cmdAI(cx *ctx) error {
+	s, err := cx.open()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	var p *engine.Proposal
+	announce := func(what string) {
+		c := s.Config.AI
+		model := c.Model
+		if c.Provider == "command" {
+			model = os.Getenv("GOMARK_AI_COMMAND")
+		}
+		fmt.Printf("asking %s (%s) to %s…\n", c.Provider, model, what)
+	}
+	switch cx.arg(0) {
+	case "translate":
+		if err := cx.arity(2, 2); err != nil {
+			return err
+		}
+		announce("translate " + cx.arg(1) + " into " + cx.lang)
+		p, err = s.AITranslate(ctx, cx.arg(1), cx.from, cx.lang)
+	case "convert":
+		if err := cx.arity(3, 3); err != nil {
+			return err
+		}
+		announce("turn " + cx.arg(1) + " into " + cx.arg(2))
+		p, err = s.AIConvert(ctx, cx.arg(1), cx.arg(2), cx.lang)
+	case "widget":
+		if err := cx.arity(3, 3); err != nil {
+			return err
+		}
+		announce("write the widget " + cx.arg(1))
+		p, err = s.AIWidget(ctx, cx.arg(1), cx.arg(2))
+	case "list", "":
+		ps, err := s.Proposals()
+		for _, p := range ps {
+			state := p.Status
+			if p.Status == "proposed" && !p.OK() {
+				state = "blocked"
+			}
+			fmt.Printf("%s  %-9s %-9s %s\n", p.ID, p.Kind, state, p.Target)
+		}
+		if len(ps) == 0 && err == nil {
+			fmt.Println("no proposals (make one: gomark ai translate <section/page.md> -lang <code>)")
+		}
+		return err
+	case "show":
+		if err := cx.arity(2, 2); err != nil {
+			return err
+		}
+		if p, err = s.Proposal(cx.arg(1)); err != nil {
+			return err
+		}
+		report(p)
+		old, _ := os.ReadFile(filepath.Join(s.Dir, filepath.FromSlash(p.Target)))
+		fmt.Println()
+		if old == nil {
+			fmt.Print(p.Content())
+		} else {
+			fmt.Print(lineDiff(string(old), p.Content()))
+		}
+		return nil
+	case "apply":
+		if err := cx.arity(2, 2); err != nil {
+			return err
+		}
+		if p, err = s.ApplyProposal(ctx, cx.arg(1), cx.force); err != nil {
+			return err
+		}
+		fmt.Printf("applied %s → %s\n", p.ID, p.Target)
+		return nil
+	case "discard":
+		if err := cx.arity(2, 2); err != nil {
+			return err
+		}
+		if err := s.DiscardProposal(cx.arg(1)); err != nil {
+			return err
+		}
+		fmt.Println("discarded", cx.arg(1))
+		return nil
+	default:
+		return usageError("unknown subcommand " + strconv.Quote(cx.arg(0)))
+	}
+	if err != nil {
+		return err
+	}
+	report(p)
+	fmt.Printf("\nnothing was written. review: gomark ai show %s", p.ID)
+	if p.OK() {
+		fmt.Printf("   apply: gomark ai apply %s", p.ID)
+	}
+	fmt.Println()
+	return nil
+}
+
+// report prints a proposal's summary, problems and notes.
+func report(p *engine.Proposal) {
+	fmt.Printf("proposal %s: %s → %s (%s, %s", p.ID, p.Kind, p.Target, p.Status, p.Provider)
+	if p.Model != "" {
+		fmt.Printf(" %s", p.Model)
+	}
+	if p.Usage.Input+p.Usage.Output > 0 {
+		fmt.Printf(", %d in / %d out tokens", p.Usage.Input, p.Usage.Output)
+	}
+	fmt.Println(")")
+	for _, x := range p.Problems {
+		fmt.Println("  ✕", x)
+	}
+	for _, x := range p.Notes {
+		fmt.Println("  !", x)
+	}
+	if p.OK() {
+		fmt.Println("  ✓ every check passed")
+	}
+}
+
+// lineDiff is a minimal unified-style diff (- old, + new) for reviews.
+func lineDiff(a, b string) string {
+	x, y := strings.Split(a, "\n"), strings.Split(b, "\n")
+	if len(x)*len(y) > 4_000_000 {
+		return b // too large to diff: show the new file
+	}
+	L := make([][]int, len(x)+1)
+	for i := range L {
+		L[i] = make([]int, len(y)+1)
+	}
+	for i := len(x) - 1; i >= 0; i-- {
+		for j := len(y) - 1; j >= 0; j-- {
+			if x[i] == y[j] {
+				L[i][j] = L[i+1][j+1] + 1
+			} else {
+				L[i][j] = max(L[i+1][j], L[i][j+1])
+			}
+		}
+	}
+	var out strings.Builder
+	i, j := 0, 0
+	for i < len(x) || j < len(y) {
+		switch {
+		case i < len(x) && j < len(y) && x[i] == y[j]:
+			out.WriteString("  " + x[i] + "\n")
+			i, j = i+1, j+1
+		case i < len(x) && (j >= len(y) || L[i+1][j] >= L[i][j+1]):
+			out.WriteString("- " + x[i] + "\n")
+			i++
+		default:
+			out.WriteString("+ " + y[j] + "\n")
+			j++
+		}
+	}
+	return out.String()
 }

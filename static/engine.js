@@ -2,7 +2,7 @@
  * GoMark — engine.js
  * Mounts ```widget-<name> blocks: loads the widget's dependencies, parses
  * { "data", "config" } (an empty block uses the widget's example) and calls
- * mount(div, data, config). Loads MathJax only when the page has math.
+ * WiMark.mount. Typesets math only when the page has some.
  */
 (function (global) {
   'use strict';
@@ -14,75 +14,42 @@
     return m ? m[1].toLowerCase() : null;
   }
 
-  function loadScript(url) {
-    return new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = url;
-      s.async = true;
-      s.onload = resolve;
-      s.onerror = function () { reject(new Error('failed to load ' + url)); };
-      document.head.appendChild(s);
-    });
-  }
-
-  async function loadDependencies(def) {
-    for (var dep of def.dependencies || []) {
-      if (!global[dep.name]) await loadScript(dep.url);
-    }
-  }
-
+  // payload returns the block's JSON, the example when empty, or an Error.
   function payload(text, def) {
     if (!text.trim()) return def.example || {};
     try {
       var p = JSON.parse(text);
-      return p && typeof p === 'object' ? p : {};
+      return p && typeof p === 'object' ? p : new Error('the block must hold a JSON object');
     } catch (e) {
-      return {};
+      return new Error('invalid JSON: ' + e.message);
     }
-  }
-
-  async function typesetMath() {
-    if (!document.querySelector('.math')) return;
-    if (!(global.MathJax && global.MathJax.typesetPromise)) {
-      global.MathJax = {
-        tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
-        options: { enableMenu: false },
-        startup: { typeset: false }
-      };
-      await loadScript('https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js');
-    }
-    try { await global.MathJax.typesetPromise(); } catch (e) { console.error('[engine] MathJax:', e); }
   }
 
   async function boot() {
-    var registry = global.Widgets;
+    var W = global.WiMark;
     var blocks = Array.from(document.querySelectorAll('pre code[class*="' + PREFIX + '"]'))
       .map(function (code) { return { code: code, name: widgetName(code) }; })
-      .filter(function (b) { return registry && registry.get(b.name); });
+      .filter(function (b) { return W && W.get(b.name); });
 
     var names = Array.from(new Set(blocks.map(function (b) { return b.name; })));
     await Promise.all(names.map(function (name) {
-      return loadDependencies(registry.get(name)).catch(function (err) {
-        console.error('[engine] dependency error for widget-' + name + ':', err);
-      });
+      return W.load(name).catch(function (err) { console.error('[engine] widget-' + name + ':', err); });
     }));
 
     blocks.forEach(function (b) {
-      var def = registry.get(b.name);
-      var p = payload(b.code.textContent, def);
+      var p = payload(b.code.textContent, W.get(b.name));
       var host = document.createElement('div');
-      host.className = 'widget widget-' + b.name;
       var pre = b.code.closest('pre') || b.code;
       pre.parentNode.replaceChild(host, pre);
-      try {
-        def.mount(host, p.data || {}, p.config || {});
-      } catch (err) {
-        host.textContent = '// widget-' + b.name + ' error: ' + err.message;
-        console.error('[engine] widget-' + b.name + ':', err);
+      if (p instanceof Error) {
+        host.className = 'widget wm wm-w-' + b.name;
+        host.appendChild(W.h('div', 'wm-error', '// widget-' + b.name + ': ' + p.message));
+        return;
       }
+      W.mount(host, b.name, p);
     });
 
-    await typesetMath();
+    if (document.querySelector('.math')) await W.typeset();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

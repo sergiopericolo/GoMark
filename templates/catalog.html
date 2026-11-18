@@ -1,0 +1,43 @@
+{{/*
+  GoMark — catalog.html: every WiMark, live, with an editor and a theme switch.
+  Data: engine.catalogContext. Links are relative to the folder holding static/.
+*/ -}}
+<!DOCTYPE html>
+<html lang="{{.Lang}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WiMark catalog · {{.Site.Title}}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="{{.FontsURL}}" rel="stylesheet">
+  <link rel="stylesheet" href="static/theme.css">
+  <link rel="stylesheet" href="static/wimark.css">
+  <link rel="stylesheet" href="static/catalog.css">
+  <link rel="stylesheet" href="static/themes/{{.Site.Theme}}.css" id="cat-theme-css">
+  <style>:root { {{.StyleVars}} }</style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body class="cat" data-theme="{{.Site.Theme}}">
+  <header class="cat-top">
+    <div class="cat-brand">WiMark <span>catalog</span></div>
+    <input id="cat-search" class="wm-input" type="search" placeholder="search widgets" aria-label="search widgets">
+    <label class="cat-theme"><span>theme</span><select id="cat-theme" class="wm-input"></select></label>
+    <span class="cat-count" id="cat-count"></span>
+    <span class="cat-version">v{{.Version}}</span>
+  </header>
+  <div class="cat-main">
+    <nav class="cat-nav" id="cat-nav" aria-label="widgets"></nav>
+    <main class="cat-list" id="cat-list"></main>
+  </div>
+  <script>
+    window.GOMARK = { lang: "{{.Lang}}", root: "./", theme: "{{.Site.Theme}}", i18n: {} };
+    window.WIMARK_CATALOG = {{.Data}};
+  </script>
+  <script src="static/widgets.js"></script>
+  {{- range .Scripts}}
+  <script src="static/{{.}}"></script>
+  {{- end}}
+  <script src="static/catalog.js"></script>
+</body>
+</html>

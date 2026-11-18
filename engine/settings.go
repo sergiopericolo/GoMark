@@ -18,7 +18,7 @@ type Setting struct {
 
 // tables maps [site], [style], [navigation].
 func (c *Config) tables() map[string]any {
-	return map[string]any{"site": &c.Site, "style": &c.Style, "navigation": &c.Navigation}
+	return map[string]any{"site": &c.Site, "style": &c.Style, "navigation": &c.Navigation, "ai": &c.AI}
 }
 
 // Settings lists every value, in file order.
@@ -26,7 +26,7 @@ func (s *Site) Settings() []Setting {
 	c := s.Config
 	var out []Setting
 	add := func(k, v string, opts ...string) { out = append(out, Setting{k, v, opts}) }
-	for _, name := range []string{"site", "style", "navigation"} {
+	for _, name := range []string{"site", "style", "navigation", "ai"} {
 		v := reflect.ValueOf(c.tables()[name]).Elem()
 		for i := range v.NumField() {
 			tag := v.Type().Field(i).Tag.Get("toml")
@@ -44,6 +44,10 @@ func (s *Site) Settings() []Setting {
 				opts = []string{"mono", "sans"}
 			case key == "style.code_theme":
 				opts = []string{"auto", "light", "dark"}
+			case key == "ai.provider":
+				opts = []string{"anthropic", "command"}
+			case key == "ai.effort":
+				opts = []string{"low", "medium", "high", "xhigh", "max"}
 			}
 			add(key, fmt.Sprint(f.Interface()), opts...)
 		}
@@ -58,6 +62,12 @@ func (s *Site) Settings() []Setting {
 		for _, l := range c.LangCodes() {
 			add("sections."+sec.ID+".title."+l, sec.Titles.For(l, c.DefaultLang()))
 		}
+		add("sections."+sec.ID+".layout", sec.Layout.Layout, LayoutColumns, LayoutPage)
+		add("sections."+sec.ID+".index", sec.Layout.Index, indexRight, indexLeft, indexNone)
+		add("sections."+sec.ID+".theme", sec.Layout.Theme, append([]string{""}, Themes()...)...)
+		add("sections."+sec.ID+".columns.folders", strconv.Itoa(sec.Layout.Columns.Folders))
+		add("sections."+sec.ID+".columns.files", strconv.Itoa(sec.Layout.Columns.Files))
+		add("sections."+sec.ID+".columns.index", strconv.Itoa(sec.Layout.Columns.Index))
 	}
 	return out
 }
@@ -83,13 +93,19 @@ func (s *Site) Set(key, value string) error {
 	before := *s.Config
 	before.Languages = slices.Clone(before.Languages)
 	before.Sections = slices.Clone(before.Sections)
-	if err := s.set(strings.Split(key, "."), value); err != nil {
+	k := strings.Split(key, ".")
+	if err := s.set(k, value); err != nil {
 		return err
 	}
 	s.Config.normalize()
 	if err := s.Config.validate(); err != nil {
 		*s.Config = before
 		return err
+	}
+	if k[0] == "sections" && k[2] != "title" && k[2] != "max_depth" {
+		if err := s.saveLayout(*s.Config.Section(k[1])); err != nil {
+			return err
+		}
 	}
 	return s.Save()
 }
@@ -110,13 +126,37 @@ func (s *Site) set(k []string, value string) error {
 		}
 	case k[0] == "sections":
 		sec := c.Section(k[1])
-		if k[2] == "title" {
+		switch k[2] {
+		case "title":
 			titles := Text{}
 			for kk, v := range sec.Titles {
 				titles[kk] = v
 			}
 			titles[k[3]] = value
 			sec.Titles = titles
+			return nil
+		case "layout":
+			sec.Layout.Layout = value
+			return nil
+		case "index":
+			sec.Layout.Index = value
+			return nil
+		case "theme":
+			sec.Layout.Theme = value
+			return nil
+		case "columns":
+			n, err := strconv.Atoi(value)
+			if err != nil || n < 0 {
+				return fmt.Errorf("%s must be a percentage (0 = default)", strings.Join(k, "."))
+			}
+			switch k[3] {
+			case "folders":
+				sec.Layout.Columns.Folders = n
+			case "files":
+				sec.Layout.Columns.Files = n
+			case "index":
+				sec.Layout.Columns.Index = n
+			}
 			return nil
 		}
 		n, err := strconv.Atoi(value)

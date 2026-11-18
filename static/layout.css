@@ -1,7 +1,7 @@
 /*
  * GoMark — layout.css
- * Geometry only. body[data-depth]: multi = 4 columns, flat = 3, home = 1.
- * Widths come from [style] as CSS variables.
+ * Geometry only. The grid's columns are set inline by the engine, per section
+ * (sections/<id>.toml); body[data-index] only moves the "On this page" column.
  */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -44,6 +44,10 @@ body {
 }
 .topbar-end { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; flex: none; }
 .build-info { padding: 0.15rem 0.45rem; }
+.lang-switch { display: flex; align-items: center; gap: 0.15rem; }
+.lang-link { padding: 0.2rem 0.5rem; text-decoration: none; text-transform: uppercase; }
+.lang-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.lang-select { padding: 0.2rem 0.4rem; cursor: pointer; }
 
 /* ─── Main grid ───────────────────────────────────────────────────────────── */
 .grid {
@@ -52,12 +56,9 @@ body {
   gap: var(--gap);
   min-height: 0;
 }
-body[data-depth="home"]  .grid { grid-template-columns: minmax(0, 1fr); }
-body[data-depth="flat"]  .grid { grid-template-columns: var(--sidebar-width, 256px) minmax(0, 1fr) var(--toc-width, 232px); }
-body[data-depth="multi"] .grid { grid-template-columns: var(--folders-width, 224px) var(--sidebar-width, 256px) minmax(0, 1fr) var(--toc-width, 232px); }
-body[data-toc="off"][data-depth="flat"]  .grid { grid-template-columns: var(--sidebar-width, 256px) minmax(0, 1fr); }
-body[data-toc="off"][data-depth="multi"] .grid { grid-template-columns: var(--folders-width, 224px) var(--sidebar-width, 256px) minmax(0, 1fr); }
 body[data-toc="off"] .col-toc { display: none !important; }
+body[data-index="left"] .col-toc { order: -1; }
+.grid { grid-template-columns: var(--grid, minmax(0, 1fr)); }
 
 /* ─── Columns and independent scroll ──────────────────────────────────────── */
 .col-folders, .col-files, .col-content, .col-toc {
@@ -202,44 +203,13 @@ body[data-toc="off"] .col-toc { display: none !important; }
 .sb-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block !important; line-height: var(--statusbar-h); }
 .sb-spacer { flex: 1 1 auto; padding: 0 !important; }
 
-/* ─── Widgets: geometric containers (colors are in theme.css) ────────────── */
-.widget { margin: 1.75rem 0; }
-
-.w-kpi { display: grid; gap: 0.75rem; }
-.w-kpi-card { padding: 1rem 1.1rem; }
-.w-kpi-bar { position: relative; height: 4px; margin-top: 0.75rem; overflow: hidden; }
-.w-kpi-fill { height: 100%; }
-
-.w-timeline { list-style: none; margin: 0; padding: 0; }
-.w-timeline-vertical { padding-left: 1.5rem; margin-left: 0.4rem; }
-.w-timeline-item { position: relative; padding: 0.1rem 0 1.4rem; }
-.w-timeline-tags { margin-top: 0.55rem; }
-.w-tag { display: inline-block; padding: 0.05rem 0.45rem; margin: 0 0.35rem 0.3rem 0; }
-
-.w-chart { position: relative; height: 320px; padding: 1rem; }
-.w-lorenz { display: grid; gap: 0.75rem; }
-.w-lorenz-panel { min-width: 0; }
-.w-lorenz-title { padding: 0.35rem 0.6rem; }
-.w-lorenz-canvas { position: relative; overflow: hidden; }
-.w-lorenz-canvas canvas { display: block; }
-.w-lorenz-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem 1rem; align-items: end; padding: 0.75rem; }
-.w-lorenz-slider { display: grid; gap: 0.3rem; }
-.w-lorenz-slabel { display: flex; justify-content: space-between; gap: 0.5rem; }
-.w-lorenz-slider input { width: 100%; margin: 0; }
-.w-lorenz-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.w-lorenz-btn { padding: 0.3rem 0.7rem; cursor: pointer; }
-.w-lorenz-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
-.w-lorenz-stat { padding: 0.6rem 0.75rem; }
-.w-lorenz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; }
-
 /* ─── Math (delimiters are rendered by MathJax) ─────────────────────────── */
 .math-inline { display: inline; }
 .math-display { display: block; margin: 1.25rem 0; overflow-x: auto; }
 
 /* ─── Medium screens: no outline ──────────────────────────────────────────── */
 @media (max-width: 1200px) {
-  body[data-depth="flat"]  .grid { grid-template-columns: var(--sidebar-width, 256px) minmax(0, 1fr); }
-  body[data-depth="multi"] .grid { grid-template-columns: var(--folders-width, 224px) var(--sidebar-width, 256px) minmax(0, 1fr); }
+  .grid { grid-template-columns: var(--grid-medium, minmax(0, 1fr)); }
   .col-toc { display: none !important; }
   .content-scroll { padding: 2rem 2rem 5rem; }
 }
