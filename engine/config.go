@@ -315,7 +315,7 @@ var configTmpl = template.Must(template.New("toml").Funcs(template.FuncMap{
 [site]
 title         = {{q .Site.Title}}
 author        = {{q .Site.Author}}
-{{kv "theme" (q .Site.Theme) "light | dark | duo | duo-dark"}}
+{{kv "theme" (q .Site.Theme) "light | dark"}}
 {{kv "out" (q .Site.Out) "output directory, relative to this site"}}
 {{kv "gomark_url" (q .Site.GoMarkURL) "link on \"GoMark\" in the top bar; \"\" = no link"}}
 

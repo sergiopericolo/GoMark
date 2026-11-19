@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 func read(t *testing.T, p string) string {
@@ -160,7 +161,7 @@ func TestImageWiMarkStaysInsideTheSite(t *testing.T) {
 
 func TestSectionTheme(t *testing.T) {
 	s := testSite(t)
-	if err := s.Set("sections.notes.theme", "duo"); err != nil {
+	if err := s.Set("sections.notes.theme", "dark"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.NewPage("", "notes", "x.md", "X"); err != nil {
@@ -170,7 +171,7 @@ func TestSectionTheme(t *testing.T) {
 	if _, err := s.Build("", out); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(read(t, filepath.Join(out, "notes", "x", "index.html")), "themes/duo.css") {
+	if !strings.Contains(read(t, filepath.Join(out, "notes", "x", "index.html")), "themes/dark.css") {
 		t.Error("the section page does not use the section theme")
 	}
 	if !strings.Contains(read(t, filepath.Join(out, "index.html")), "themes/light.css") {
@@ -178,5 +179,50 @@ func TestSectionTheme(t *testing.T) {
 	}
 	if err := s.Set("sections.notes.theme", "nope"); err == nil {
 		t.Error("an unknown theme was accepted")
+	}
+}
+
+func TestRebuildUpdatesAnExistingOutput(t *testing.T) {
+	s := testSite(t)
+	if _, err := s.NewPage("", "notes", "a.md", "Old"); err != nil {
+		t.Fatal(err)
+	}
+	out := t.TempDir()
+	if _, err := s.Build("", out); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{"CNAME", "stale.html", "notes 2/index.html"} {
+		if err := writeFile(filepath.Join(out, filepath.FromSlash(p)), []byte("x")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	css := filepath.Join(out, "static", "layout.css")
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(css, old, old); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(s.Dir, "en", "notes", "a.md"), []byte("# New\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Set("site.title", "Renamed"); err != nil {
+		t.Fatal(err)
+	}
+	if s, _ = Open(s.Dir); s == nil {
+		t.Fatal("cannot reopen the site")
+	}
+	if _, err := s.Build("", out); err != nil {
+		t.Fatal(err)
+	}
+	if html := read(t, filepath.Join(out, "notes", "a", "index.html")); !strings.Contains(html, "New") || !strings.Contains(html, "Renamed") {
+		t.Error("the rebuilt page kept the old content or config")
+	}
+	for p, want := range map[string]bool{"CNAME": true, "stale.html": false, "notes 2": false} {
+		if exists(filepath.Join(out, filepath.FromSlash(p))) != want {
+			t.Errorf("%s: exists = %v, want %v", p, !want, want)
+		}
+	}
+	if info, err := os.Stat(css); err != nil || !info.ModTime().Equal(old) {
+		t.Error("an unchanged file was rewritten")
 	}
 }

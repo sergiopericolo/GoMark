@@ -2,8 +2,7 @@
  * GoMark — catalog.js
  * The WiMark catalog: every WiMark in one list, live, each with an editor
  * (a form for its inline options, the block source as you would write it,
- * copy as Markdown) and a theme switch to check monochrome and bicolor
- * themes.
+ * copy as Markdown) and a theme switch to check every theme.
  */
 (function (global) {
   'use strict';

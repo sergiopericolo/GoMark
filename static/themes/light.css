@@ -1,50 +1,51 @@
 /*
  * class: monochrome
- * light — ink on paper. One ink, five grays, no hue.
+ * light — ink on paper. One ink, five grays, no hue. Neither the paper nor
+ * the ink is pure: soft extremes, even steps in lightness (L*) between them.
  */
 :root {
-  --bg:          #F7F7F5;
-  --surface:     #F7F7F5;
-  --hover:       #EEEEEB;
-  --line:        #E1E1DD;
-  --ink:         #0B0B0B;
-  --text:        #262625;
-  --gray:        #5E5E5B;
-  --gray-soft:   #868682;
-  --accent:      #0B0B0B;
-  --on-accent:   #F7F7F5;
-  --accent-soft: #EEEEEB;
+  --bg:          #F1F1EE;
+  --surface:     #F1F1EE;
+  --hover:       #E6E6E3;
+  --line:        #D8D8D5;
+  --ink:         #1F1F1C;
+  --text:        #343431;
+  --gray:        #61615E;
+  --gray-soft:   #848481;
+  --accent:      #1F1F1C;
+  --on-accent:   #F1F1EE;
+  --accent-soft: #E6E6E3;
 
-  --code-bg:     #EEEEEB;
-  --code-head:   #EEEEEB;
-  --code-line:   #E1E1DD;
-  --code-ink:    #262625;
-  --code-strong: #0B0B0B;
-  --code-title:  #0B0B0B;
-  --code-number: #0B0B0B;
-  --code-type:   #5E5E5B;
-  --code-string: #5E5E5B;
-  --code-punct:  #868682;
-  --code-muted:  #868682;
+  --code-bg:     #E6E6E3;
+  --code-head:   #E6E6E3;
+  --code-line:   #D8D8D5;
+  --code-ink:    #343431;
+  --code-strong: #1F1F1C;
+  --code-title:  #1F1F1C;
+  --code-number: #1F1F1C;
+  --code-type:   #61615E;
+  --code-string: #61615E;
+  --code-punct:  #848481;
+  --code-muted:  #848481;
 
   /* Widgets: series tell apart by tone, dash and texture, never by hue. */
-  --wm-1: #0B0B0B; --wm-on-1: #F7F7F5; --wm-dash-1: none;
-  --wm-2: #5E5E5B; --wm-on-2: #F7F7F5; --wm-dash-2: none;
-  --wm-3: #A6A6A2; --wm-on-3: #0B0B0B; --wm-dash-3: none;
-  --wm-4: #0B0B0B; --wm-on-4: #F7F7F5; --wm-dash-4: 6 3;
-  --wm-5: #5E5E5B; --wm-on-5: #F7F7F5; --wm-dash-5: 6 3;
-  --wm-6: #A6A6A2; --wm-on-6: #0B0B0B; --wm-dash-6: 6 3;
-  --wm-7: #0B0B0B; --wm-on-7: #F7F7F5; --wm-dash-7: 1 3;
-  --wm-8: #5E5E5B; --wm-on-8: #F7F7F5; --wm-dash-8: 1 3;
+  --wm-1: #1F1F1C; --wm-on-1: #F1F1EE; --wm-dash-1: none;
+  --wm-2: #61615E; --wm-on-2: #F1F1EE; --wm-dash-2: none;
+  --wm-3: #9E9E9B; --wm-on-3: #1F1F1C; --wm-dash-3: none;
+  --wm-4: #1F1F1C; --wm-on-4: #F1F1EE; --wm-dash-4: 6 3;
+  --wm-5: #61615E; --wm-on-5: #F1F1EE; --wm-dash-5: 6 3;
+  --wm-6: #9E9E9B; --wm-on-6: #1F1F1C; --wm-dash-6: 6 3;
+  --wm-7: #1F1F1C; --wm-on-7: #F1F1EE; --wm-dash-7: 1 3;
+  --wm-8: #61615E; --wm-on-8: #F1F1EE; --wm-dash-8: 1 3;
   --wm-fill-4: url(#wm-tex-4); --wm-bg-4: repeating-linear-gradient(45deg, var(--wm-4) 0 1px, var(--surface) 1px 5px);
   --wm-fill-5: url(#wm-tex-5); --wm-bg-5: repeating-linear-gradient(135deg, var(--wm-5) 0 1px, var(--surface) 1px 5px);
   --wm-fill-6: url(#wm-tex-6); --wm-bg-6: repeating-linear-gradient(45deg, var(--wm-6) 0 1px, var(--surface) 1px 5px);
   --wm-fill-7: url(#wm-tex-7); --wm-bg-7: repeating-linear-gradient(135deg, var(--wm-7) 0 1px, var(--surface) 1px 5px);
   --wm-fill-8: url(#wm-tex-8); --wm-bg-8: repeating-linear-gradient(45deg, var(--wm-8) 0 1px, var(--surface) 1px 5px);
-  --wm-accent: #0B0B0B; --wm-on-accent: #F7F7F5;
-  --wm-pos: #0B0B0B; --wm-neg: #0B0B0B; --wm-warn: #5E5E5B; --wm-info: #868682;
-  --wm-on-pos: #F7F7F5; --wm-on-neg: #F7F7F5; --wm-on-warn: #F7F7F5; --wm-on-info: #F7F7F5;
-  --wm-pos-soft: #EEEEEB; --wm-neg-soft: #EEEEEB; --wm-warn-soft: #EEEEEB; --wm-info-soft: #EEEEEB;
-  --wm-soft: #EEEEEB; --wm-grid: #E1E1DD;
-  --wm-heat-0: #EEEEEB; --wm-heat-1: #CBCBC7; --wm-heat-2: #A6A6A2; --wm-heat-3: #5E5E5B; --wm-heat-4: #0B0B0B;
+  --wm-accent: #1F1F1C; --wm-on-accent: #F1F1EE;
+  --wm-pos: #1F1F1C; --wm-neg: #1F1F1C; --wm-warn: #61615E; --wm-info: #848481;
+  --wm-on-pos: #F1F1EE; --wm-on-neg: #F1F1EE; --wm-on-warn: #F1F1EE; --wm-on-info: #F1F1EE;
+  --wm-pos-soft: #E6E6E3; --wm-neg-soft: #E6E6E3; --wm-warn-soft: #E6E6E3; --wm-info-soft: #E6E6E3;
+  --wm-soft: #E6E6E3; --wm-grid: #D8D8D5;
+  --wm-heat-0: #E6E6E3; --wm-heat-1: #C2C2BF; --wm-heat-2: #9E9E9B; --wm-heat-3: #61615E; --wm-heat-4: #1F1F1C;
 }

@@ -31,9 +31,8 @@ dist/            output
   published from another language, with a notice.
 - A section with `max_depth = N` holds pages up to N levels deep. Deeper pages
   are skipped and reported.
-- Colors live only in the theme. Four themes ship: `light` and `dark`
-  (monochrome: neutrals only), `duo` and `duo-dark` (bicolor: neutrals and
-  one accent). `gomark theme check` verifies them.
+- Colors live only in the theme. Two monochrome themes ship
+  (neutrals only): `light` and `dark`. `gomark theme check` verifies them.
 - Every build writes a search index. Press `⌘K`, `Ctrl K` or `/` on any page.
 
 ## Widgets

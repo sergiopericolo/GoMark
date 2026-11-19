@@ -36,7 +36,7 @@ Work in this order and do not skip the check or the look.
    It applies the rules and parses the file with node.
 6. **Look.** Use the block in a page, then `gomark build`, or
    `gomark widget preview` and open `http://localhost:8080/?only=<name>`.
-   Check every theme with `&theme=light`, `dark`, `duo`, `duo-dark`. Without
+   Check both themes with `&theme=light` and `&theme=dark`. Without
    a browser tool, take a screenshot with headless Chrome:
 
    ```sh

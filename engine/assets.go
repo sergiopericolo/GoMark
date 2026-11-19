@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"cmp"
 	"errors"
 	"fmt"
@@ -210,27 +211,97 @@ func (s *Site) copyStatic(out string) (int, error) {
 // keepOut is never deleted from the output (its own git repository).
 var keepOut = map[string]bool{".git": true, ".gitignore": true, "CNAME": true, ".nojekyll": true}
 
-// cleanDir empties dir except keepOut, retrying files briefly locked by
-// synced folders (EDEADLK / EBUSY).
-func cleanDir(dir string) error {
-	entries, err := os.ReadDir(dir)
-	if os.IsNotExist(err) {
-		return os.MkdirAll(dir, 0o755)
-	}
-	for _, e := range entries {
-		if keepOut[e.Name()] {
-			continue
-		}
-		for try := 1; ; try++ {
-			err = os.RemoveAll(filepath.Join(dir, e.Name()))
-			if err == nil || try == 6 || !errors.Is(err, syscall.EDEADLK) && !errors.Is(err, syscall.EBUSY) {
-				break
-			}
-			time.Sleep(time.Duration(100*try) * time.Millisecond)
-		}
+// syncDir makes dst a copy of src without emptying it first: changed files
+// are overwritten in place, unchanged ones are left alone and entries src
+// does not have are removed (except keepOut at the top). Deleting and
+// recreating the whole output makes synced folders (iCloud, Dropbox) keep
+// conflict copies ("it 2") and lock entries while they upload, so the next
+// build failed; entries that stay locked are warnings, not errors.
+func syncDir(src, dst string) (warnings []string, err error) {
+	err = filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
+		rel, _ := filepath.Rel(src, p)
+		to := filepath.Join(dst, rel)
+		info, statErr := os.Lstat(to)
+		if d.IsDir() {
+			if statErr == nil && !info.IsDir() {
+				if err := removeAll(to); err != nil {
+					return err
+				}
+			}
+			return os.MkdirAll(to, 0o755)
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		if statErr == nil && info.IsDir() {
+			if err := removeAll(to); err != nil {
+				return err
+			}
+		} else if old, err := os.ReadFile(to); err == nil && bytes.Equal(old, b) {
+			return nil
+		}
+		return retry(func() error { return os.WriteFile(to, b, 0o644) })
+	})
+	if err != nil {
+		return nil, err
 	}
-	return err
+	return prune(src, dst, true), nil
 }
+
+// prune removes from dst what src does not have.
+func prune(src, dst string, top bool) (warnings []string) {
+	var entries []os.DirEntry
+	err := retry(func() (err error) { entries, err = os.ReadDir(dst); return })
+	if err != nil {
+		return []string{fmt.Sprintf("cannot check %s for stale files: %v", dst, err)}
+	}
+	for _, e := range entries {
+		if top && keepOut[e.Name()] {
+			continue
+		}
+		from, to := filepath.Join(src, e.Name()), filepath.Join(dst, e.Name())
+		info, err := os.Stat(from)
+		switch {
+		case err == nil && info.IsDir() && e.IsDir():
+			warnings = append(warnings, prune(from, to, false)...)
+		case err == nil:
+		default:
+			if err := removeAll(to); err != nil {
+				warnings = append(warnings, fmt.Sprintf("cannot remove stale %s: %v", to, err))
+			}
+		}
+	}
+	return warnings
+}
+
+// removeAll removes p; a folder still locked by a sync client is moved
+// aside under a hidden name first, which frees its name at once.
+func removeAll(p string) error {
+	err := retry(func() error { return os.RemoveAll(p) })
+	if err == nil || !locked(err) {
+		return err
+	}
+	aside := filepath.Join(filepath.Dir(p), fmt.Sprintf(".gomark-stale-%d", time.Now().UnixNano()))
+	if os.Rename(p, aside) != nil {
+		return err
+	}
+	return retry(func() error { return os.RemoveAll(aside) })
+}
+
+// retry runs fn again while a synced folder keeps the file briefly locked
+// (EDEADLK / EBUSY).
+func retry(fn func() error) error {
+	for try := 1; ; try++ {
+		err := fn()
+		if err == nil || try == 6 || !locked(err) {
+			return err
+		}
+		time.Sleep(time.Duration(100*try) * time.Millisecond)
+	}
+}
+
+func locked(err error) bool { return errors.Is(err, syscall.EDEADLK) || errors.Is(err, syscall.EBUSY) }

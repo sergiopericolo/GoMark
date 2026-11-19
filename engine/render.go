@@ -251,6 +251,9 @@ type Stats struct {
 // menu), and out/index.html opens the default language. Pages missing in a
 // language are copied with a notice, so every page exists in every language.
 // lang ("" = all) rebuilds one language only.
+//
+// The site is built in a temporary folder and then synced into out, so a
+// failed build leaves out as it was and unchanged files are not rewritten.
 func (s *Site) Build(lang, out string) ([]*Stats, error) {
 	if out == "" {
 		out = s.Out()
@@ -263,45 +266,64 @@ func (s *Site) Build(lang, out string) ([]*Stats, error) {
 		}
 		langs = []string{l}
 	}
+	tmp, err := os.MkdirTemp("", "gomark-build-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tmp)
+
+	var all []*Stats
+	sync := func(src, dst string) error {
+		warns, err := syncDir(src, dst)
+		if err != nil {
+			return fmt.Errorf("cannot write %s: %w", dst, err)
+		}
+		all[len(all)-1].Warnings = append(all[len(all)-1].Warnings, warns...)
+		return nil
+	}
 	if len(s.Config.Languages) == 1 {
-		st, err := s.build(langs[0], out, false)
+		st, err := s.build(langs[0], tmp, false)
 		if err != nil {
 			return nil, err
 		}
-		return []*Stats{st}, nil
+		st.Out = out
+		all = append(all, st)
+		return all, sync(tmp, out)
 	}
-	if lang == "" {
-		if err := cleanDir(out); err != nil {
-			return nil, fmt.Errorf("cannot clean output dir: %w", err)
-		}
-	}
-	var all []*Stats
 	for _, l := range langs {
-		st, err := s.build(l, filepath.Join(out, l), true)
+		st, err := s.build(l, filepath.Join(tmp, l), true)
 		if err != nil {
-			return all, err
+			return nil, err
 		}
+		st.Out = filepath.Join(out, l)
 		all = append(all, st)
 	}
 	def := s.Config.DefaultLang() + "/index.html"
 	root := fmt.Sprintf(`<!doctype html><meta charset="utf-8"><title>%s</title>`+
 		`<meta http-equiv="refresh" content="0; url=%s"><a href="%s">%s</a>`+"\n",
 		s.Config.Site.Title, def, def, def)
-	return all, os.WriteFile(filepath.Join(out, "index.html"), []byte(root), 0o644)
+	if err := os.WriteFile(filepath.Join(tmp, "index.html"), []byte(root), 0o644); err != nil {
+		return nil, err
+	}
+	if lang == "" {
+		return all, sync(tmp, out)
+	}
+	// One language: the other language folders stay as they are.
+	if err := sync(filepath.Join(tmp, langs[0]), filepath.Join(out, langs[0])); err != nil {
+		return nil, err
+	}
+	return all, writeFile(filepath.Join(out, "index.html"), []byte(root))
 }
 
-// build compiles one language into out, emptied first; switches adds the
-// language switch to every page.
+// build compiles one language into out, a new empty folder; switches adds
+// the language switch to every page.
 func (s *Site) build(lang, out string, switches bool) (*Stats, error) {
 	r, err := s.builder(lang)
 	if err != nil {
 		return nil, err
 	}
-	if out == "" {
-		out = s.Out()
-	}
-	if err := cleanDir(out); err != nil {
-		return nil, fmt.Errorf("cannot clean output dir: %w", err)
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		return nil, err
 	}
 	st := &Stats{Lang: r.lang, Out: out}
 	r.media = map[string][]byte{}

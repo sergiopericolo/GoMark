@@ -2,7 +2,7 @@
  * GoMark — wimark.css
  * The look of every WiMark. Colors come only from theme tokens (--wm-*, --ink,
  * --line…), fonts only from --mono / --sans / --font-body: switching theme
- * class (monochrome, bicolor) never breaks a widget.
+ * never breaks a widget.
  */
 
 /* ─── Base ────────────────────────────────────────────────────────────────── */

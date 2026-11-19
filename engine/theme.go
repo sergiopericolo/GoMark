@@ -16,11 +16,10 @@ import (
 // CheckTheme verifies it against the colors the theme actually uses.
 const (
 	ClassMonochrome = "monochrome" // ink on paper: neutrals only
-	ClassBicolor    = "bicolor"    // ink on paper plus one accent hue
 )
 
 // ThemeClasses lists the classes in order.
-var ThemeClasses = []string{ClassMonochrome, ClassBicolor}
+var ThemeClasses = []string{ClassMonochrome}
 
 const (
 	neutralChroma = 0.06 // below this a color is a neutral (gray), not a hue
@@ -124,14 +123,10 @@ func CheckTheme(name string) (ThemeInfo, error) {
 	info.Families = hueFamilies(pal)
 	switch info.Class {
 	case "":
-		info.Problems = append(info.Problems, `no class declared (add " * class: monochrome|bicolor" to the header)`)
+		info.Problems = append(info.Problems, `no class declared (add " * class: monochrome" to the header)`)
 	case ClassMonochrome:
 		if info.Families != 0 {
 			info.Problems = append(info.Problems, fmt.Sprintf("monochrome but the palette has %d hue families (want neutrals only)", info.Families))
-		}
-	case ClassBicolor:
-		if info.Families != 1 {
-			info.Problems = append(info.Problems, fmt.Sprintf("bicolor but the palette has %d hue families (want neutrals and one accent)", info.Families))
 		}
 	default:
 		info.Problems = append(info.Problems, fmt.Sprintf("unknown class %q (use %s)", info.Class, strings.Join(ThemeClasses, ", ")))
