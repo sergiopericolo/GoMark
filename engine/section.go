@@ -239,6 +239,7 @@ func (c *Context) section(sec *Section, mode string) {
 	c.Style = sec.Layout.Style
 	if sec.Layout.Theme != "" {
 		c.Site.Theme = sec.Layout.Theme
+		c.Themes = nil // the section's own theme: no switch
 	}
 	c.StyleVars = styleVars(c.Style)
 	c.FontsURL = fontsURL(c.Style)

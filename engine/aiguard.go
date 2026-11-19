@@ -25,6 +25,8 @@ var (
 	headingRe    = regexp.MustCompile(`^(#{1,6})\s`)
 	linkRe       = regexp.MustCompile(`\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)`)
 	inlineCodeRe = regexp.MustCompile("`([^`\n]+)`")
+	mathRe       = regexp.MustCompile(`\$\$[\s\S]+?\$\$|\$[^$\n]+?\$`)
+	spaceRe      = regexp.MustCompile(`\s+`)
 	dangerousRe  = regexp.MustCompile(`(?i)<\s*(script|iframe|object|embed|link|meta|style|form|base)\b|\son[a-z]+\s*=|javascript:|vbscript:|data:text/html`)
 	listItemRe   = regexp.MustCompile(`^(?:[-*+]|\d+[.)])\s`)
 )
@@ -126,7 +128,7 @@ func checkTranslation(src, out string, s *Site) (problems, notes []string) {
 	if a, b := matches(inlineCodeRe, sp, 1), matches(inlineCodeRe, op, 1); !slices.Equal(a, b) {
 		problems = append(problems, "inline code changed")
 	}
-	if strings.Count(sp, "$") != strings.Count(op, "$") {
+	if mathText(sp) != mathText(op) {
 		problems = append(problems, "math ($…$) changed")
 	}
 	problems = append(problems, checkUnsafe(op)...)
@@ -134,6 +136,17 @@ func checkTranslation(src, out string, s *Site) (problems, notes []string) {
 		problems = append(problems, fmt.Sprintf("the translation is %.0f%% of the source length: something was dropped or added", ratio*100))
 	}
 	return problems, notes
+}
+
+// mathText joins the formulas of Markdown prose without spaces: a
+// translation may split "$\gamma = x$" into "$\gamma$ … $= x$" around a
+// word, but the formulas themselves must stay the same.
+func mathText(prose string) string {
+	var b strings.Builder
+	for _, m := range mathRe.FindAllString(inlineCodeRe.ReplaceAllString(prose, ""), -1) {
+		b.WriteString(strings.Trim(m, "$"))
+	}
+	return spaceRe.ReplaceAllString(b.String(), "")
 }
 
 // shape counts the paragraphs, list items and table rows of Markdown prose.

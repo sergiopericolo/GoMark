@@ -31,8 +31,11 @@ dist/            output
   published from another language, with a notice.
 - A section with `max_depth = N` holds pages up to N levels deep. Deeper pages
   are skipped and reported.
-- Colors live only in the theme. Two monochrome themes ship
-  (neutrals only): `light` and `dark`. `gomark theme check` verifies them.
+- Colors live only in the theme. Two monochrome themes ship (neutrals
+  only): `light`, anthracite on ivory, and `dark`, ivory on anthracite.
+  `[site] theme` is the default; readers switch in the top bar and the
+  browser remembers their choice. A section with its own theme has no switch.
+  `gomark theme check` verifies them.
 - Every build writes a search index. Press `⌘K`, `Ctrl K` or `/` on any page.
 
 ## Widgets
@@ -65,16 +68,19 @@ in a loop: brief, write, check, look, fix.
 ## AI
 
 ```sh
-gomark ai translate notes/first.md -lang it
+gomark translate notes/first.md          # into every language that misses it
+gomark translate notes/first.md -lang it # into one language (-force replaces it)
 gomark ai convert report.pdf notes/report.md
 gomark ai show <id>
 gomark ai apply <id>
 ```
 
-The AI only writes proposals into `.gomark/ai/`. Every proposal is checked,
-and nothing goes into the site until `apply`. A translation must keep the
-text as it is: same paragraphs, list items, table rows, code, links and math,
-and widget blocks copied exactly. Anything else is rejected.
+`translate` is one step: it reads the page from the language that has it,
+checks the translation and writes it. A translation must keep the text as it
+is: same paragraphs, list items, table rows, code, links and formulas, and
+widget blocks copied exactly. A translation that fails a check is not written:
+it stays a proposal in `.gomark/ai/` to fix and `apply`. The other AI commands
+only write proposals, and nothing goes into the site until `apply`.
 
 Set the provider once in `[ai]`; keys come from the environment only:
 

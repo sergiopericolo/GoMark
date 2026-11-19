@@ -670,8 +670,7 @@ func cmdAI(cx *ctx) error {
 		if err := cx.arity(2, 2); err != nil {
 			return err
 		}
-		announce("translate " + cx.arg(1) + " into " + cx.lang)
-		p, err = s.AITranslate(ctx, cx.arg(1), cx.from, cx.lang)
+		return translate(s, cx, cx.arg(1))
 	case "convert":
 		if err := cx.arity(3, 3); err != nil {
 			return err
@@ -694,7 +693,7 @@ func cmdAI(cx *ctx) error {
 			fmt.Printf("%s  %-9s %-9s %s\n", p.ID, p.Kind, state, p.Target)
 		}
 		if len(ps) == 0 && err == nil {
-			fmt.Println("no proposals (make one: gomark ai translate <section/page.md> -lang <code>)")
+			fmt.Println("no proposals (make one: gomark translate <section/page.md>)")
 		}
 		return err
 	case "show":
@@ -743,6 +742,64 @@ func cmdAI(cx *ctx) error {
 		fmt.Printf("   apply: gomark ai apply %s", p.ID)
 	}
 	fmt.Println()
+	return nil
+}
+
+func cmdTranslate(cx *ctx) error {
+	if err := cx.arity(1, 1); err != nil {
+		return err
+	}
+	s, err := cx.open()
+	if err != nil {
+		return err
+	}
+	return translate(s, cx, cx.arg(0))
+}
+
+// translate writes a page in -lang, or in every language that misses it, in
+// one step: each translation is checked and written when it passes.
+func translate(s *engine.Site, cx *ctx, page string) error {
+	rel, from, langs, err := s.TranslationSource(page, cx.from)
+	if err != nil {
+		return err
+	}
+	if cx.lang == from {
+		return fmt.Errorf("%s/%s is the source (use -from for another one)", from, rel)
+	}
+	if cx.lang != "" {
+		langs = []string{cx.lang}
+	}
+	if len(langs) == 0 {
+		return fmt.Errorf("%s is already in every language (redo one with -lang <code> -force)", rel)
+	}
+	var failed []string
+	for _, lang := range langs {
+		target := lang + "/" + rel
+		if _, err := os.Stat(filepath.Join(s.Dir, lang, filepath.FromSlash(rel))); err == nil && !cx.force {
+			return fmt.Errorf("%s exists (-force to replace it)", target)
+		}
+		fmt.Printf("translating %s/%s → %s (%s %s)…\n", from, rel, target, s.Config.AI.Provider, s.Config.AI.Model)
+		p, err := s.AITranslate(context.Background(), rel, from, lang)
+		if err == nil && p.OK() {
+			_, err = s.ApplyProposal(context.Background(), p.ID, cx.force)
+		}
+		switch {
+		case err != nil:
+			fmt.Fprintln(os.Stderr, "  ✕", err)
+			failed = append(failed, target)
+		case !p.OK():
+			for _, x := range p.Problems {
+				fmt.Println("  ✕", x)
+			}
+			fmt.Printf("  not written: see gomark ai show %s; fix .gomark/ai/%s/content.md, then gomark ai apply %s\n", p.ID, p.ID, p.ID)
+			failed = append(failed, target)
+		default:
+			fmt.Println("  ✓", target)
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("not translated: %s", strings.Join(failed, ", "))
+	}
 	return nil
 }
 

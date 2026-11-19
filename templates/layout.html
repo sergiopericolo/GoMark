@@ -4,7 +4,7 @@
   Grid and Index come from the section's own layout. Links are relative.
 */ -}}
 <!DOCTYPE html>
-<html lang="{{.Lang}}">
+<html lang="{{.Lang}}" data-theme="{{.Site.Theme}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,7 +17,29 @@
   <link rel="stylesheet" href="{{.RootPrefix}}static/layout.css">
   <link rel="stylesheet" href="{{.RootPrefix}}static/theme.css">
   <link rel="stylesheet" href="{{.RootPrefix}}static/wimark.css">
+  {{- if .Themes}}{{range .Themes}}
+  <link rel="stylesheet" href="{{$.RootPrefix}}static/themes/{{.}}.css" data-theme-css="{{.}}"{{if ne . $.Site.Theme}} media="not all"{{end}}>
+  {{- end}}
+  <script>
+    /* The reader's theme, before the first paint: all themes are loaded, one applies. */
+    (function () {
+      var links = document.querySelectorAll('link[data-theme-css]'), saved = null;
+      function apply(name) {
+        var found = false;
+        for (var i = 0; i < links.length; i++) found = found || links[i].getAttribute('data-theme-css') === name;
+        if (!found) return false;
+        for (var j = 0; j < links.length; j++) links[j].media = links[j].getAttribute('data-theme-css') === name ? 'all' : 'not all';
+        document.documentElement.setAttribute('data-theme', name);
+        return true;
+      }
+      window.gomarkTheme = apply;
+      try { saved = localStorage.getItem('gomark-theme'); } catch (e) {}
+      if (saved) apply(saved);
+    })();
+  </script>
+  {{- else}}
   <link rel="stylesheet" href="{{.RootPrefix}}static/themes/{{.Site.Theme}}.css">
+  {{- end}}
   {{- range .Switch}}{{if not .Current}}
   <link rel="alternate" hreflang="{{.Code}}" href="{{.Href}}">{{end}}{{end}}
   <style>:root { {{.StyleVars}} }</style>
@@ -38,6 +60,9 @@
     </nav>
     <div class="topbar-end">
       <button class="search-open" type="button" data-search-open aria-haspopup="dialog"><span>{{.T "search"}}</span><kbd>⌘K</kbd></button>
+      {{if .Themes}}<div class="theme-switch" role="group" aria-label="{{.T "theme"}}" data-theme-switch>
+        {{- range .Themes}}<button class="theme-opt" type="button" data-theme-set="{{.}}" aria-pressed="{{if eq . $.Site.Theme}}true{{else}}false{{end}}">{{$.ThemeLabel .}}</button>{{end -}}
+      </div>{{end}}
       {{if gt (len .Switch) 1}}{{template "langSwitch" .}}{{end}}
       <span class="build-info">{{if .Site.GoMarkURL}}<a class="build-name" href="{{.Site.GoMarkURL}}">GoMark</a>{{else}}<span class="build-name">GoMark</span>{{end}} v{{.Version}}</span>
     </div>
@@ -94,7 +119,7 @@
 
       <aside class="col-files" aria-label="{{.T "files"}}">
         <div class="col-head">
-          <span>{{.T "files"}}</span>
+          <span>{{.T "files"}} <span class="badge">{{len .Pages}}</span></span>
           <span class="col-head-path">{{.ActiveSection.ID}}/{{if .CurrentFolder}}{{if .CurrentFolder.RelPath}}{{.CurrentFolder.RelPath}}/{{end}}{{end}}</span>
         </div>
         <div class="col-scroll">
@@ -178,7 +203,8 @@
 
   <div class="search" data-search hidden role="dialog" aria-modal="true" aria-label="{{.T "search"}}">
     <div class="search-panel">
-      <input class="search-input" type="search" placeholder="{{.T "search"}}" autocomplete="off" spellcheck="false" aria-controls="search-results">
+      <div class="search-bar"><span class="search-prompt" aria-hidden="true">❯</span>
+      <input class="search-input" type="search" placeholder="{{.T "search"}}" autocomplete="off" spellcheck="false" aria-controls="search-results"></div>
       <ul class="search-results" id="search-results" role="listbox"></ul>
       <div class="search-hint" aria-hidden="true"><span><kbd>↑↓</kbd> {{.T "search_move"}}</span><span><kbd>↵</kbd> {{.T "search_go"}}</span><span><kbd>esc</kbd> {{.T "search_close"}}</span></div>
     </div>
@@ -189,6 +215,7 @@
       lang: "{{.Lang}}",
       root: "{{.RootPrefix}}",
       theme: "{{.Site.Theme}}",
+      themes: {{.Themes}},
       section: "{{if .ActiveSection}}{{.ActiveSection.ID}}{{end}}",
       i18n: { noResults: "{{.T "search_none"}}", copy: "{{.T "copy"}}", copied: "{{.T "copied"}}", words: "{{.T "words"}}", minRead: "{{.T "min_read"}}",
         data: "{{.T "wm_data"}}", search: "{{.T "wm_search"}}", noData: "{{.T "wm_no_data"}}", other: "{{.T "wm_other"}}",

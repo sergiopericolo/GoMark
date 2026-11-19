@@ -62,6 +62,7 @@ var commands = []command{
 	{"section", "[add <id> [title] [depth] | rm <id>]", "list, add or remove sections", cmdSection},
 	{"lang", "[add <code> [label] | rm <code>]", "list, add or remove languages", cmdLang},
 	{"theme", "[name | check]", "list themes with their class, set one, or check them all", cmdTheme},
+	{"translate", "<[lang/]section/page.md>", "translate a page into -lang, or every language that misses it, and write it", cmdTranslate},
 	{"ai", "<translate|convert|widget|list|show|apply|discard> …", "AI proposals, checked, applied only on request", cmdAI},
 	{"widget", "[new <name> | check [files] | context <name> <description> | skill | catalog | preview]", "list, create and check WiMarks; brief and skill for Claude Code; the catalog", cmdWidget},
 }
@@ -73,8 +74,8 @@ const flagsHelp = `Flags (anywhere on the line):
   -addr <addr>   serve / widget preview address (default :8080)
   -build         serve: build first
   -delete        section rm: delete the folders too
-  -force         init: rewrite an existing gomark.toml; ai apply: replace a file; widget skill: replace it
-  -from <code>   ai translate: source language (default: the site's first)
+  -force         init: rewrite an existing gomark.toml; ai apply, translate: replace a file; widget skill: replace it
+  -from <code>   translate: source language (default: the language that has the page)
   -like <a,b>    ai widget, widget context: WiMarks to follow as models (default: the closest)
   -m <msg>       publish: commit message
 `

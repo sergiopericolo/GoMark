@@ -177,6 +177,13 @@ func TestSectionTheme(t *testing.T) {
 	if !strings.Contains(read(t, filepath.Join(out, "index.html")), "themes/light.css") {
 		t.Error("the home page lost the site theme")
 	}
+	if home := read(t, filepath.Join(out, "index.html")); !strings.Contains(home, `data-theme-set="light"`) ||
+		!strings.Contains(home, `themes/dark.css" data-theme-css="dark" media="not all"`) {
+		t.Error("the home page has no theme switch, or the other theme is not idle")
+	}
+	if strings.Contains(read(t, filepath.Join(out, "notes", "x", "index.html")), "data-theme-set") {
+		t.Error("a section with its own theme shows the switch")
+	}
 	if err := s.Set("sections.notes.theme", "nope"); err == nil {
 		t.Error("an unknown theme was accepted")
 	}

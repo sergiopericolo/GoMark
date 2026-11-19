@@ -1,51 +1,53 @@
 /*
  * class: monochrome
- * dark — paper on ink. One light, five grays, no hue. A charcoal ground and
- * an off-white light, never pure black or white; even steps in lightness.
+ * dark — ivory on anthracite, like a good terminal. The frame is the deepest
+ * anthracite, the reading panel one step up; the ink is ivory, never white.
+ * Grays in even steps between them. Every color stays below the neutral chroma.
  */
 :root {
-  --bg:          #171715;
-  --surface:     #171715;
-  --hover:       #1F1F1D;
-  --line:        #2E2E2C;
-  --ink:         #E4E4E2;
-  --text:        #C8C8C6;
-  --gray:        #9A9A98;
-  --gray-soft:   #737371;
-  --accent:      #E4E4E2;
-  --on-accent:   #171715;
-  --accent-soft: #242422;
+  color-scheme: dark;
+  --bg:          #18191C;
+  --surface:     #212226;
+  --hover:       #2C2D32;
+  --line:        #323338;
+  --ink:         #EDE9E0;
+  --text:        #CFCCC4;
+  --gray:        #98968F;
+  --gray-soft:   #6C6C6B;
+  --accent:      #EDE9E0;
+  --on-accent:   #212226;
+  --accent-soft: #2C2D32;
 
-  --code-bg:     #1C1C1A;
-  --code-head:   #1C1C1A;
-  --code-line:   #2E2E2C;
-  --code-ink:    #C8C8C6;
-  --code-strong: #E4E4E2;
-  --code-title:  #E4E4E2;
-  --code-number: #E4E4E2;
-  --code-type:   #9A9A98;
-  --code-string: #9A9A98;
-  --code-punct:  #737371;
-  --code-muted:  #737371;
+  --code-bg:     #1A1B1E;
+  --code-head:   #1A1B1E;
+  --code-line:   #2C2D32;
+  --code-ink:    #CFCCC4;
+  --code-strong: #EDE9E0;
+  --code-title:  #EDE9E0;
+  --code-number: #EDE9E0;
+  --code-type:   #98968F;
+  --code-string: #98968F;
+  --code-punct:  #6C6C6B;
+  --code-muted:  #6C6C6B;
 
   /* Widgets: series tell apart by tone, dash and texture, never by hue. */
-  --wm-1: #E4E4E2; --wm-on-1: #171715; --wm-dash-1: none;
-  --wm-2: #9A9A98; --wm-on-2: #171715; --wm-dash-2: none;
-  --wm-3: #575755; --wm-on-3: #E4E4E2; --wm-dash-3: none;
-  --wm-4: #E4E4E2; --wm-on-4: #171715; --wm-dash-4: 6 3;
-  --wm-5: #9A9A98; --wm-on-5: #171715; --wm-dash-5: 6 3;
-  --wm-6: #575755; --wm-on-6: #E4E4E2; --wm-dash-6: 6 3;
-  --wm-7: #E4E4E2; --wm-on-7: #171715; --wm-dash-7: 1 3;
-  --wm-8: #9A9A98; --wm-on-8: #171715; --wm-dash-8: 1 3;
+  --wm-1: #EDE9E0; --wm-on-1: #212226; --wm-dash-1: none;
+  --wm-2: #98968F; --wm-on-2: #212226; --wm-dash-2: none;
+  --wm-3: #5E5F63; --wm-on-3: #EDE9E0; --wm-dash-3: none;
+  --wm-4: #EDE9E0; --wm-on-4: #212226; --wm-dash-4: 6 3;
+  --wm-5: #98968F; --wm-on-5: #212226; --wm-dash-5: 6 3;
+  --wm-6: #5E5F63; --wm-on-6: #EDE9E0; --wm-dash-6: 6 3;
+  --wm-7: #EDE9E0; --wm-on-7: #212226; --wm-dash-7: 1 3;
+  --wm-8: #98968F; --wm-on-8: #212226; --wm-dash-8: 1 3;
   --wm-fill-4: url(#wm-tex-4); --wm-bg-4: repeating-linear-gradient(45deg, var(--wm-4) 0 1px, var(--surface) 1px 5px);
   --wm-fill-5: url(#wm-tex-5); --wm-bg-5: repeating-linear-gradient(135deg, var(--wm-5) 0 1px, var(--surface) 1px 5px);
   --wm-fill-6: url(#wm-tex-6); --wm-bg-6: repeating-linear-gradient(45deg, var(--wm-6) 0 1px, var(--surface) 1px 5px);
   --wm-fill-7: url(#wm-tex-7); --wm-bg-7: repeating-linear-gradient(135deg, var(--wm-7) 0 1px, var(--surface) 1px 5px);
   --wm-fill-8: url(#wm-tex-8); --wm-bg-8: repeating-linear-gradient(45deg, var(--wm-8) 0 1px, var(--surface) 1px 5px);
-  --wm-accent: #E4E4E2; --wm-on-accent: #171715;
-  --wm-pos: #E4E4E2; --wm-neg: #E4E4E2; --wm-warn: #9A9A98; --wm-info: #737371;
-  --wm-on-pos: #171715; --wm-on-neg: #171715; --wm-on-warn: #171715; --wm-on-info: #171715;
-  --wm-pos-soft: #242422; --wm-neg-soft: #242422; --wm-warn-soft: #242422; --wm-info-soft: #242422;
-  --wm-soft: #1F1F1D; --wm-grid: #2E2E2C;
-  --wm-heat-0: #242422; --wm-heat-1: #3E3E3C; --wm-heat-2: #737371; --wm-heat-3: #B3B3B1; --wm-heat-4: #E4E4E2;
+  --wm-accent: #EDE9E0; --wm-on-accent: #212226;
+  --wm-pos: #EDE9E0; --wm-neg: #EDE9E0; --wm-warn: #98968F; --wm-info: #6C6C6B;
+  --wm-on-pos: #212226; --wm-on-neg: #212226; --wm-on-warn: #212226; --wm-on-info: #212226;
+  --wm-pos-soft: #2C2D32; --wm-neg-soft: #2C2D32; --wm-warn-soft: #2C2D32; --wm-info-soft: #2C2D32;
+  --wm-soft: #2C2D32; --wm-grid: #323338;
+  --wm-heat-0: #2C2D32; --wm-heat-1: #46474C; --wm-heat-2: #6C6C6B; --wm-heat-3: #B4B1AA; --wm-heat-4: #EDE9E0;
 }

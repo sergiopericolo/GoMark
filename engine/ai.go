@@ -496,8 +496,49 @@ func (s *Site) aiWidgetHelp() string {
 	return b.String()
 }
 
-// AITranslate proposes a translation of "<section>/<path>.md" from the
-// language that has it (from, or the default language) into lang.
+// TranslationSource resolves a page to translate, "[<lang>/]<section>/<path>.md":
+// its path, the language it is read from (from, the prefix, else the default
+// language if it has the page, else the first that has it) and the languages
+// that miss it.
+func (s *Site) TranslationSource(page, from string) (rel, src string, missing []string, err error) {
+	page = cleanRel(page)
+	if l, rest, ok := strings.Cut(page, "/"); ok && s.Config.Section(l) == nil && slices.Contains(s.Config.LangCodes(), l) {
+		page = rest
+		from = cmp.Or(from, l)
+	}
+	if rel, err = s.pagePath(page); err != nil {
+		return "", "", nil, err
+	}
+	has := func(l string) bool { return exists(s.path(l, filepath.FromSlash(rel))) }
+	if from != "" {
+		if src, err = s.Lang(from); err != nil {
+			return "", "", nil, err
+		}
+	} else if has(s.Config.DefaultLang()) {
+		src = s.Config.DefaultLang()
+	} else {
+		for _, l := range s.Config.LangCodes() {
+			if has(l) {
+				src = l
+				break
+			}
+		}
+	}
+	if src == "" {
+		return "", "", nil, fmt.Errorf("%s is in no language folder", rel)
+	}
+	if !has(src) {
+		return "", "", nil, fmt.Errorf("%s/%s does not exist", src, rel)
+	}
+	for _, l := range s.Config.LangCodes() {
+		if !has(l) {
+			missing = append(missing, l)
+		}
+	}
+	return rel, src, missing, nil
+}
+
+// AITranslate proposes a translation of a page (see TranslationSource) into lang.
 func (s *Site) AITranslate(ctx context.Context, page, from, lang string) (*Proposal, error) {
 	if lang == "" {
 		return nil, errors.New("choose the target language with -lang")
@@ -506,15 +547,12 @@ func (s *Site) AITranslate(ctx context.Context, page, from, lang string) (*Propo
 	if err != nil {
 		return nil, err
 	}
-	if from, err = s.Lang(from); err != nil {
+	rel, from, _, err := s.TranslationSource(page, from)
+	if err != nil {
 		return nil, err
 	}
 	if from == to {
 		return nil, fmt.Errorf("the page is already in %s (use -from for the source language)", to)
-	}
-	rel, err := s.pagePath(page)
-	if err != nil {
-		return nil, err
 	}
 	src, err := s.readInput(filepath.Join(s.Dir, from, filepath.FromSlash(rel)))
 	if err != nil {

@@ -15,6 +15,33 @@
     } catch (e) { return null; }
   }
 
+  /* ─── Theme switch ──────────────────────────────────────────────────── */
+  // The site's theme is the default; the reader's choice is kept only when it
+  // differs from it, so a new default still reaches readers who never chose.
+  function initTheme() {
+    var opts = document.querySelectorAll('[data-theme-set]');
+    if (!opts.length || !window.gomarkTheme) return;
+    function mark(name) {
+      document.body.setAttribute('data-theme', name);
+      Array.prototype.forEach.call(opts, function (b) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-theme-set') === name ? 'true' : 'false');
+      });
+    }
+    // The head script may have applied the reader's theme already.
+    mark(document.documentElement.getAttribute('data-theme') || G.theme);
+    Array.prototype.forEach.call(opts, function (b) {
+      b.addEventListener('click', function () {
+        var name = b.getAttribute('data-theme-set');
+        if (!window.gomarkTheme(name)) return;
+        mark(name);
+        try {
+          if (name === G.theme) localStorage.removeItem('gomark-theme');
+          else localStorage.setItem('gomark-theme', name);
+        } catch (e) {}
+      });
+    });
+  }
+
   /* ─── Folder tree ───────────────────────────────────────────────────── */
   function initTree() {
     var nodes = document.querySelectorAll('.tree-node.has-children');
@@ -92,6 +119,20 @@
       head.appendChild(label);
       head.appendChild(btn);
 
+      // Line numbers in a gutter beside the code, never inside it: copy
+      // and selection take only the code.
+      var lines = code.textContent.replace(/\n$/, '').split('\n').length;
+      if (lines > 1) {
+        var nums = [];
+        for (var i = 1; i <= lines; i++) nums.push(i);
+        var gutter = document.createElement('span');
+        gutter.className = 'code-gutter';
+        gutter.setAttribute('aria-hidden', 'true');
+        gutter.textContent = nums.join('\n');
+        pre.insertBefore(gutter, code);
+        pre.classList.add('has-gutter');
+      }
+
       pre.parentNode.insertBefore(block, pre);
       block.appendChild(head);
       block.appendChild(pre);
@@ -150,6 +191,7 @@
   }
 
   function boot() {
+    initTheme();
     initTree();
     initContent();
     initCode();

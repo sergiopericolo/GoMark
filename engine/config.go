@@ -315,7 +315,7 @@ var configTmpl = template.Must(template.New("toml").Funcs(template.FuncMap{
 [site]
 title         = {{q .Site.Title}}
 author        = {{q .Site.Author}}
-{{kv "theme" (q .Site.Theme) "light | dark"}}
+{{kv "theme" (q .Site.Theme) "default theme: light | dark (readers switch in the top bar)"}}
 {{kv "out" (q .Site.Out) "output directory, relative to this site"}}
 {{kv "gomark_url" (q .Site.GoMarkURL) "link on \"GoMark\" in the top bar; \"\" = no link"}}
 
@@ -351,7 +351,8 @@ description = {{q .Description}}
 {{kv "status_bar" .StatusBar "bottom status bar"}}{{end}}
 
 # AI (gomark ai)
-# Proposals only: nothing is written until "gomark ai apply". Keys come from
+# "gomark translate" writes checked translations; the other AI commands are
+# proposals until "gomark ai apply". Keys come from
 # the environment only: ANTHROPIC_API_KEY, DEEPSEEK_API_KEY or OPENAI_API_KEY
 # (with GOMARK_AI_ENDPOINT for another compatible API); the command provider
 # runs GOMARK_AI_COMMAND (e.g. "claude -p").
