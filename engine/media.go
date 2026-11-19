@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -25,40 +24,47 @@ const (
 	maxImageBytes = 40 << 20
 )
 
-var imageFenceRe = regexp.MustCompile("(?ms)^```widget-(image|gallery)[ \\t]*\\n(.*?)\\n```[ \\t]*$")
+var imageFenceRe = regexp.MustCompile("(?ms)^```wimark-(image|gallery)([^\\n]*)\\n(.*?)^```[ \\t]*$")
 
-// imageJob is one processed image of a build.
-type imageJob struct {
-	src, out string
-	opts     ImageOptions
-}
-
-// processImages rewrites the image and gallery blocks of one page. theme is
-// the page's theme (palette: true). Problems are returned as warnings: the
+// processImages rewrites the image and gallery WiMarks of one page. theme is
+// the page's theme ("palette": true). Problems are returned as warnings: the
 // block is then left as it is.
 func (r *builder) processImages(src []byte, theme, page string) ([]byte, []string) {
 	var warns []string
 	out := imageFenceRe.ReplaceAllFunc(src, func(block []byte) []byte {
 		m := imageFenceRe.FindSubmatch(block)
-		kind, body := string(m[1]), bytes.TrimSpace(m[2])
-		if len(body) == 0 {
-			return block // empty block: the widget's example
-		}
-		var payload map[string]any
-		if err := json.Unmarshal(body, &payload); err != nil {
-			warns = append(warns, fmt.Sprintf("%s: widget-%s: invalid JSON: %v", page, kind, err))
+		kind := string(m[1])
+		v, err := wimarkValues(string(m[2]), string(m[3]))
+		if err != nil {
+			warns = append(warns, fmt.Sprintf("%s: wimark-%s: %v", page, kind, err))
 			return block
 		}
-		cfg, _ := payload["config"].(map[string]any)
-		opts := imageOptions(cfg, kind, theme)
+		if len(v) == 0 {
+			return block // empty block: the widget's example
+		}
+		opts := imageOptions(v, kind, theme)
 		var items []map[string]any
-		switch d := payload["data"].(type) {
-		case map[string]any:
-			items = []map[string]any{d}
-		case []any:
-			for _, x := range d {
-				if m, ok := x.(map[string]any); ok {
-					items = append(items, m)
+		if kind == "image" {
+			items = []map[string]any{v}
+		} else {
+			list, _ := v["items"].([]any)
+			for i, x := range list {
+				// a gallery item is "src", ["src", "caption"] or { "src": … }
+				it, ok := x.(map[string]any)
+				switch t := x.(type) {
+				case string:
+					it, ok = map[string]any{"src": t}, true
+				case []any:
+					if len(t) > 0 {
+						it, ok = map[string]any{"src": t[0]}, true
+						if len(t) > 1 {
+							it["caption"] = t[1]
+						}
+					}
+				}
+				if ok {
+					list[i] = it
+					items = append(items, it)
 				}
 			}
 		}
@@ -68,36 +74,69 @@ func (r *builder) processImages(src []byte, theme, page string) ([]byte, []strin
 			if s == "" || strings.Contains(s, "://") || strings.HasPrefix(s, "data:") || strings.HasPrefix(s, "static/") {
 				continue // remote, inline or engine images are left alone
 			}
-			res, w, h, err := r.processImage(s, opts, cfg)
+			res, w, h, err := r.processImage(s, opts)
 			if err != nil {
-				warns = append(warns, fmt.Sprintf("%s: widget-%s: %v", page, kind, err))
+				warns = append(warns, fmt.Sprintf("%s: wimark-%s: %v", page, kind, err))
 				continue
 			}
-			it["original"], it["src"], it["width"], it["height"] = s, res, w, h
+			it["original"], it["src"], it["w"], it["h"] = s, res, w, h
 			changed = true
 		}
 		if !changed {
 			return block
 		}
-		js, _ := json.MarshalIndent(payload, "", "  ")
-		return []byte("```widget-" + kind + "\n" + string(js) + "\n```")
+		js, _ := json.Marshal(v)
+		return []byte("```wimark-" + kind + " " + string(js) + "\n```")
 	})
 	return out, warns
 }
 
-// imageOptions reads max_width, quality and palette from a block's config.
-func imageOptions(cfg map[string]any, kind, theme string) ImageOptions {
+// wimarkValues merges the options of a WiMark fence line with its JSON body,
+// as static/widgets.js does: an object body adds its keys, an array body
+// becomes "items".
+func wimarkValues(opts, body string) (map[string]any, error) {
+	v := map[string]any{}
+	if opts = strings.TrimSpace(opts); opts != "" {
+		if err := json.Unmarshal([]byte(opts), &v); err != nil {
+			return nil, fmt.Errorf("options: invalid JSON: %w", err)
+		}
+	}
+	if body = strings.TrimSpace(body); body != "" {
+		var b any
+		if err := json.Unmarshal([]byte(body), &b); err != nil {
+			return nil, fmt.Errorf("invalid JSON: %w", err)
+		}
+		switch t := b.(type) {
+		case map[string]any:
+			for k, x := range t {
+				v[k] = x
+			}
+		case []any:
+			v["items"] = t
+		default:
+			v["value"] = t
+		}
+	}
+	return v, nil
+}
+
+// imageOptions reads max_width, quality, format, palette and dither.
+func imageOptions(v map[string]any, kind, theme string) ImageOptions {
 	o := ImageOptions{MaxWidth: 1600, Quality: 82}
 	if kind == "gallery" {
 		o.MaxWidth = 900
 	}
-	if v, ok := cfg["max_width"].(float64); ok && v > 0 {
-		o.MaxWidth = int(v)
+	if n, ok := v["max_width"].(float64); ok && n > 0 {
+		o.MaxWidth = int(n)
 	}
-	if v, ok := cfg["quality"].(float64); ok && v > 0 {
-		o.Quality = int(v)
+	if n, ok := v["quality"].(float64); ok && n > 0 {
+		o.Quality = int(n)
 	}
-	switch p := cfg["palette"].(type) {
+	o.Format, _ = v["format"].(string)
+	if d, ok := v["dither"].(bool); ok {
+		o.NoDither = !d
+	}
+	switch p := v["palette"].(type) {
 	case bool:
 		if p {
 			o.Palette = theme
@@ -110,8 +149,8 @@ func imageOptions(cfg map[string]any, kind, theme string) ImageOptions {
 
 // processImage encodes one site image (site-relative src) and records it for
 // the output; it returns the output path and size. Results are cached in
-// <site>/.gomark/cache by content and options.
-func (r *builder) processImage(src string, o ImageOptions, cfg map[string]any) (string, int, int, error) {
+// <site>/.gomark/cache by content, options and encoder version.
+func (r *builder) processImage(src string, o ImageOptions) (string, int, int, error) {
 	rel := cleanRel(src)
 	if rel == "" {
 		return "", 0, 0, fmt.Errorf("%q must be a path inside the site", src)
@@ -128,16 +167,9 @@ func (r *builder) processImage(src string, o ImageOptions, cfg map[string]any) (
 	if err != nil {
 		return "", 0, 0, err
 	}
-	ext := strings.ToLower(path.Ext(rel))
-	switch format, _ := cfg["format"].(string); {
-	case o.Palette != "", format == "png", ext == ".gif":
-		ext = ".png"
-	case format == "jpeg", format == "jpg":
-		ext = ".jpg"
-	}
 	sum := sha256.New()
 	sum.Write(raw)
-	fmt.Fprintf(sum, "|%d|%d|%s|%s", o.MaxWidth, o.Quality, o.Palette, ext)
+	fmt.Fprintf(sum, "|v%d|%d|%d|%s|%s|%t", encoderVersion, o.MaxWidth, o.Quality, o.Format, o.Palette, o.NoDither)
 	if o.Palette != "" {
 		pal, err := ThemePalette(o.Palette)
 		if err != nil {
@@ -145,23 +177,27 @@ func (r *builder) processImage(src string, o ImageOptions, cfg map[string]any) (
 		}
 		fmt.Fprint(sum, pal) // a changed theme is a new image
 	}
-	hash := hex.EncodeToString(sum.Sum(nil))[:12]
-	name := strings.TrimSuffix(path.Base(rel), path.Ext(rel)) + "-" + hash + ext
-	cache := r.site.path(cacheDir, name)
-	b, err := os.ReadFile(cache)
-	var w, h int
-	if err == nil {
-		w, h = imageSize(b)
-	} else {
-		var st ImageStats
-		if b, st, err = EncodeImage(raw, ext, o); err != nil {
+	stem := strings.TrimSuffix(path.Base(rel), path.Ext(rel)) + "-" + hex.EncodeToString(sum.Sum(nil))[:12]
+	var name string
+	var b []byte
+	for _, ext := range []string{".png", ".jpg"} {
+		if c, err := os.ReadFile(r.site.path(cacheDir, stem+ext)); err == nil {
+			name, b = stem+ext, c
+			break
+		}
+	}
+	if b == nil {
+		var ext string
+		if b, ext, _, err = EncodeImage(raw, o); err != nil {
 			return "", 0, 0, fmt.Errorf("%s: %w", rel, err)
 		}
-		w, h = st.Width, st.Height
+		name = stem + ext
+		cache := r.site.path(cacheDir, name)
 		if os.MkdirAll(filepath.Dir(cache), 0o755) == nil {
 			_ = os.WriteFile(cache, b, 0o644) // the cache is best effort
 		}
 	}
+	w, h := imageSize(b)
 	out := mediaOut + "/" + name
 	r.media[out] = b
 	return out, w, h, nil

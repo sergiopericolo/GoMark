@@ -40,7 +40,7 @@ func wrapOut(s string) string {
 }
 
 const sourcePage = "# Install\n\nRun the binary. See [the docs](https://example.com/docs).\n\n```bash\ngo install .\n```\n\n" +
-	"```widget-steps\n{ \"data\": [{ \"title\": \"Download\", \"state\": \"done\" }], \"config\": { \"numbered\": true } }\n```\n\nUse `gomark build` then $x^2$.\n"
+	"```wimark-steps {\"start\": 1}\n[[\"Download\", \"Get the binary.\"]]\n```\n\n```wimark-badges\n[[\"build\", \"passing\", \"ok\"]]\n```\n\nUse `gomark build` then $x^2$.\n"
 
 func translationSite(t *testing.T) *Site {
 	s := testSite(t)
@@ -89,8 +89,9 @@ func TestTranslateGuards(t *testing.T) {
 	cases := map[string]string{
 		"code changed":     strings.Replace(sourcePage, "go install .", "go install ./...", 1),
 		"url changed":      strings.Replace(sourcePage, "https://example.com/docs", "https://evil.example/x", 1),
-		"widget state":     strings.Replace(sourcePage, `"state": "done"`, `"state": "fatto"`, 1),
-		"widget number":    strings.Replace(sourcePage, `"numbered": true`, `"numbered": false`, 1),
+		"widget state":     strings.Replace(sourcePage, `"ok"]`, `"bene"]`, 1),
+		"widget number":    strings.Replace(sourcePage, `{"start": 1}`, `{"start": 2}`, 1),
+		"widget renamed":   strings.Replace(sourcePage, "wimark-badges", "wimark-steps", 1),
 		"heading dropped":  strings.Replace(sourcePage, "# Install\n", "", 1),
 		"script injected":  sourcePage + "\n<script>alert(1)</script>\n",
 		"handler injected": strings.Replace(sourcePage, "Run the binary.", `<img src=x onerror="steal()"> Run.`, 1),
@@ -149,7 +150,7 @@ func TestConvertChecksWidgets(t *testing.T) {
 	s := testSite(t)
 	in := filepath.Join(t.TempDir(), "report.html")
 	os.WriteFile(in, []byte("<h1>Report</h1><p>Sales 10, 20</p>"), 0o644)
-	withFakeAI(t, wrapOut("# Report\n\n```widget-nosuch\n{}\n```\n\n```widget-bar\n{ broken\n```\n"))
+	withFakeAI(t, wrapOut("# Report\n\n```wimark-nosuch\n{}\n```\n\n```wimark-bar\n{ broken\n```\n"))
 	p, err := s.AIConvert(context.Background(), in, "notes/report.md", "")
 	if err != nil {
 		t.Fatal(err)

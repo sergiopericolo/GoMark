@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -27,7 +28,7 @@ func Themes() []string {
 
 // Widget is a widget script, named after its file. Folders are ignored.
 type Widget struct {
-	Name string // used by ```widget-<name> fences
+	Name string // used by ```wimark-<name> fences
 	Path string // in the output, relative to static/: widgets/<folders>/<name>.js
 	Site bool   // from <site>/widgets rather than the engine
 
@@ -95,9 +96,10 @@ func (s *Site) NewWidget(rel string) (string, error) {
 }
 
 const widgetTemplate = `/*
- * NAME — describe what the widget shows.
- * data:   { "value": 42 }
- * config: {}
+ * NAME — describe what the WiMark shows.
+ *   ` + "```" + `wimark-NAME {"label": "answer"}
+ *   42
+ *   ` + "```" + `
  *
  * Rules (checked by gomark ai and the engine tests): no colors or fonts in
  * JavaScript — give elements classes, use WiMark.series(i) for series and
@@ -106,17 +108,35 @@ const widgetTemplate = `/*
  */
 WiMark.register('NAME', {
   title: 'NAME',
-  description: 'What the widget is for.',
-  example: { data: { value: 42 }, config: {} },
-  mount: function (el, data, config) {
+  description: 'What the WiMark is for.',
+  example: { opts: { label: 'answer' }, body: 42 },
+  mount: function (el, v) {
     var W = WiMark, h = W.h;
-    el.appendChild(h('div', 'wm-card wm-NAME', W.inline('**NAME**: ' + W.fmt(W.num(data.value)))));
+    el.appendChild(h('div', 'wm-card wm-NAME', W.inline('**' + (v.label || 'NAME') + '**: ' + W.fmt(W.num(v.value)))));
   }
 });
 `
 
 // Folder is the widget's folder ("" at the top level).
 func (w Widget) Folder() string { return parent(strings.TrimPrefix(w.Path, "widgets/")) }
+
+var textInputRe = regexp.MustCompile(`(?m)^\s*input:\s*'text'`)
+
+// TextInput reports whether the WiMark reads its body as text, not JSON.
+func (w Widget) TextInput() bool {
+	b, _ := fs.ReadFile(w.fsys, w.file)
+	return textInputRe.Match(b)
+}
+
+// Summary is the first line of the doc comment, after "name — ".
+func (w Widget) Summary() string {
+	first, _, _ := strings.Cut(w.Doc(), "\n")
+	_, after, ok := strings.Cut(first, " — ")
+	if !ok {
+		return first
+	}
+	return after
+}
 
 // Doc is the widget's leading comment: description and payload.
 func (w Widget) Doc() string {

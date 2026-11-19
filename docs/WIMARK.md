@@ -1,26 +1,52 @@
 # WiMark
 
-WiMarks are GoMark's widgets: a ```` ```widget-<name> ```` block holding
-`{ "data": …, "config": … }` becomes a widget in the browser. An empty block
-shows the widget's example. There are 100 engine WiMarks in four classes, one
-folder each under `static/widgets/`; a site adds its own in `<site>/widgets/`.
+WiMarks are GoMark's widgets. A fenced block whose language is
+`wimark-<name>` becomes a widget in the browser; short options go on the
+fence line as inline JSON, the rest in the body:
 
-```sh
-gomark widget                   # list them by class
-gomark widget preview           # the catalog, live: every widget, an editor, a theme switch
-gomark widget catalog -out dir  # the same catalog as static files
-gomark widget new charts/meter  # a new site widget that already follows the rules
+````md
+```wimark-callout {"kind": "warning", "title": "Breaking change"}
+`Open` now fails when `gomark.toml` is missing.
 ```
 
-The catalog uses the site's fonts, sizes and theme. Each widget has an editor:
-a form for its `config`, the full JSON, and **copy markdown** to paste the block
-into a page. The theme menu switches between every theme, grouped by class, to
-check that nothing breaks.
+```wimark-badges
+[["build", "passing", "ok"], ["coverage", "87%", "warn"], ["go", "1.24"]]
+```
+
+```wimark-plot {"fn": "sin(x)", "x": [-6.28, 6.28]}
+```
+````
+
+- **Options** (fence line): one JSON object, kept on one line.
+- **Body**: JSON for most WiMarks — an object adds keys to the options, an
+  array becomes the item list (`items`). Text WiMarks (code, math, diagrams
+  written as lines…) read the body as plain text instead.
+- **Tuples** keep the JSON short: `["label", value, "state"]` instead of
+  `{"label": …, "value": …, "state": …}`; objects work too.
+- **Sections**: text bodies with several parts (tabs, columns, diffs, HTTP)
+  split them with `=== Title` lines.
+- **Math**: `$…$` inside any text is typeset; `$$…$$` on its own paragraph
+  is display math.
+- An empty block shows the WiMark's example.
+
+There are 123 engine WiMarks, one file each in `static/widgets/`; a site
+adds its own in `<site>/widgets/` (folders are free there).
+
+```sh
+gomark widget                   # list them
+gomark widget preview           # the catalog, live: every WiMark, its source, a theme switch
+gomark widget catalog -out dir  # the same catalog as static files
+gomark widget new charts/meter  # a new site WiMark that already follows the rules
+```
+
+The catalog uses the site's fonts, sizes and theme. Each WiMark shows its
+source exactly as you would write it, a form for its options and **copy
+markdown**. `?only=plot,venn` shows some WiMarks, `?theme=duo` picks a theme.
 
 ## Rules
 
 A WiMark never decides colors or fonts: the theme does (see [THEMES.md](THEMES.md)).
-The engine's tests check every engine widget, and `gomark ai widget` checks
+The engine's tests check every engine WiMark, and `gomark ai widget` checks
 every generated one, against the same rules (`engine/rules.go`):
 
 - one file, one `WiMark.register('<file name>', …)`, a doc comment first;
@@ -30,143 +56,173 @@ every generated one, against the same rules (`engine/rules.go`):
 
 Series use `WiMark.series(i)` (eight, in a fixed order; a ninth folds into
 "other"), states use `'wm-' + WiMark.state(name)` and always come with an icon
-and a label. Charts carry a legend for two or more series, direct labels up to
-four, tooltips and a collapsed data table.
+and a label.
+
+## Writing one
+
+```js
+WiMark.register('meter', {
+  title: 'Meter', description: 'One value against a target.',
+  input: 'json',                      // or 'text': the body arrives as v.text
+  example: { opts: { label: 'coverage', target: 80 }, body: 72 },
+  mount: function (el, v) { /* v = defaults + options + body (v.items, v.value or keys) */ }
+});
+```
 
 ## Runtime
 
-`static/widgets.js` gives every widget the same tools: `h`, `svg`, `inline`,
-`paras`, `url`, `asset`, `tabular`, `cell`, `seriesData`, `fmt`, `fmtDate`,
-`scale.linear`, `scale.band`, `chart`, `parts`, `legend`, `table`, `dataTable`,
-`codeBlock`, `diagram` (layered layout, boxes, links), `math.compile` (a safe
-expression parser for `function` and `polar`), `store`, `copy`, `typeset`.
+`static/widgets.js` gives every WiMark the same tools: `h`, `svg`, `inline`
+(with `$math$`), `prose`, `tex`, `rows` (tuples → objects), `lines`,
+`sections`, `url`, `asset`, `cell`, `fmt`, `fmtDate`, `scale.linear`,
+`scale.band`, `chart`, `plotPath`, `parts`, `legend`, `table`, `grid`
+(sortable, filterable), `parseCSV`, `dataTable`, `codeBlock`, `diagram`
+(layered layout, boxes, links), `math.compile` (a safe expression parser),
+`math.value`, `store`, `copy`, `typeset`.
 
 ## Images
 
-`image` and `gallery` are processed at build: a site image (`media/…`) is
-resized to `max_width`, re-encoded (`quality`, `format`) and, with
-`"palette": true` (the page's theme) or `"palette": "<theme>"`, mapped to the
-theme's colors with dithering — a monochrome or bicolor site gets pictures in
-its own tones. Results go to `<out>/media/_wm/` and are cached in
-`<site>/.gomark/cache/`. Paths outside the site are refused with a warning.
-The same encoder is a command: `gomark image in.jpg out.png [theme] -width 1200`.
+`image` and `gallery` are processed at build. A site image (`media/…`) is:
 
-## General (25)
+1. turned upright from its EXIF orientation (JPEG);
+2. shrunk to `max_width` (1600, gallery 900) — never enlarged;
+3. re-encoded: `"format": "auto"` (default) keeps screenshots, diagrams and
+   anything with transparency as a lossless indexed PNG when it has up to
+   256 colors, and makes photos JPEG (`quality`, default 82); `"jpeg"` and
+   `"png"` force one;
+4. with `"palette": true` (the page's theme) or `"palette": "<theme>"`,
+   mapped to the theme's colors with Floyd–Steinberg dithering
+   (`"dither": false` for flat areas and smaller files); transparency is kept;
+5. kept as it was when nothing needed to change and re-encoding would only
+   make it larger.
 
-| WiMark | What it does |
-|---|---|
-| `accordion` | Collapsible sections; optionally only one open at a time. |
-| `badges` | Shields-style labels (label \| value) with optional state and link. |
-| `bullets` | Nested list with marker per list or per item (✓ ✕ → ★ numbers…), optionally with a state. |
-| `callout` | A boxed note with an icon: info, tip, success, warning, danger. |
-| `cards` | A responsive grid of cards; each can link somewhere and carry tags. |
-| `changelog` | Versions with typed changes, Keep-a-Changelog style. |
-| `countdown` | Live time left until a date, then a message. |
-| `gallery` | A grid of captioned images with a fixed ratio; build-time compression. |
-| `glossary` | Terms with definitions, sorted, with a jump-to-letter index and cross references. |
-| `hero` | A large opening block with title, subtitle and call-to-action buttons. |
-| `image` | A figure; at build the image is resized, compressed and optionally mapped to the theme palette. |
-| `kanban` | Columns of cards with counts; each column can carry a state. |
-| `links` | Call-to-action buttons or a described link list. |
-| `profile` | A person or project card with picture, facts and links. |
-| `progress` | Labelled bars showing value against a maximum. |
-| `proscons` | Advantages and drawbacks side by side, with icons. |
-| `quote` | A pull quote with author, source and link. |
-| `rating` | Scores as stars, dots or segments, with half steps. |
-| `roadmap` | Phases with period, state (done / active / planned) and items. |
-| `spoiler` | Hidden or blurred text revealed on click (answers, solutions). |
-| `steps` | A numbered process with done / current / todo states. |
-| `tabs` | Switch between panes of text; keyboard accessible. |
-| `timeline` | Dated events along a vertical or horizontal line; optional state per event. |
-| `toc` | Numbered contents of the page headings, built in the browser. |
-| `todo` | A checklist with progress; the reader can tick items (kept in the browser). |
+Results go to `<out>/media/_wm/` and are cached in `<site>/.gomark/cache/`
+(keyed by content, options and encoder version). Paths outside the site are
+refused with a warning.
 
-## Markdown replacements (25)
+## All WiMarks
 
-| WiMark | What it does |
-|---|---|
-| `annotated` | Code with numbered markers on lines and the explanations below. |
-| `aside` | Main text with a side note (left or right) that stacks on narrow screens. |
-| `cardtable` | Each row becomes a card with labelled fields — tables that survive phones. |
-| `code` | Code with file name, line numbers, highlighted lines and copy. |
-| `codecompare` | Two code blocks side by side, for before / after or two approaches. |
-| `codetabs` | Several code blocks in tabs (one per language or file). |
-| `columns` | Two or more columns of text: separate blocks side by side, or one flowing text. |
-| `comparison` | Products against features with ✓ ✕ ◐, grouped, one product highlighted. |
-| `csv` | Paste CSV (quotes, any delimiter) and get a formatted table. |
-| `diff` | Line changes between two versions (computed, or from a unified diff), unified or split. |
-| `filtertable` | Search across rows; optionally filter by the values of one column. |
-| `footnotes` | Text with numbered references [^key] and back-linked notes. |
-| `formula` | A numbered display equation (LaTeX via MathJax) with the meaning of its symbols. |
-| `grouped` | Rows grouped under headings, with optional subtotals of numeric columns. |
-| `highlight` | Text with ==marked== passages (marker, underline or box), Markdown has no mark. |
-| `keyvalue` | Specification-style pairs in one or two columns, with notes. |
-| `matrix` | Row × column grid (confusion, RACI, compatibility); numbers can be shaded. |
-| `outline` | A foldable nested list with hierarchical numbering. |
-| `pricing` | Plans side by side with price, features and a call to action; one highlighted. |
-| `schedule` | A weekly timetable; events span slots and keep a series per kind. |
-| `sortable` | Click a header to sort; numbers, dates and text each sort naturally. |
-| `split` | Two panes with a chosen width ratio; each pane is text or code. |
-| `table` | A richer Markdown table: column formats, alignment, caption, stripes, row headers. |
-| `terminal` | A shell session; commands are copyable, output is dimmed. |
-| `totals` | Adds a total (and optionally an average) row for every numeric column. |
-
-## Developer (25)
-
-| WiMark | What it does |
-|---|---|
-| `api` | Method and path, parameters table, request body and responses with examples. |
-| `architecture` | Horizontal bands of components (front end, engine, storage…) with links across them. |
-| `bitfield` | Fields of a register or header over numbered bits, wrapped in lanes. |
-| `classdiagram` | Classes with fields and methods; extends, implements, uses and has relations. |
-| `cli` | Usage line, subcommands and flags of a command, with copyable examples. |
-| `env` | A reference of environment variables with a ready-to-copy .env template. |
-| `erd` | Tables with keys and types, joined by labelled relations with cardinality. |
-| `filetree` | A directory tree from indented text or nested data, with notes per entry. |
-| `flowchart` | Nodes and arrows auto-laid out in layers (top-down or left-right), with shapes and labels. |
-| `gantt` | Tasks as bars over dates with progress, milestones, groups (one series each) and today. |
-| `gitgraph` | Commits on branch lanes (one series per branch) with forks, merges and tags. |
-| `hexdump` | Bytes in hex with offsets and printable characters; ranges can be highlighted. |
-| `http` | A request and its response with headers and pretty-printed JSON bodies. |
-| `json` | Explore nested JSON: fold objects and arrays, see types and sizes, copy the whole. |
-| `logs` | Log lines with level badges (icon + label) and toggles per level. |
-| `mindmap` | A topic at the centre with branches around it; each first-level branch is one series. |
-| `network` | Nodes and links placed by a force layout (same input, same picture); groups as series. |
-| `palette` | Shows the active theme’s tokens (what every WiMark reads); switch theme to compare classes. |
-| `regex` | Edit a pattern and see matches highlighted in test strings, with capture groups. |
-| `sequence` | Actors with lifelines and numbered messages, replies dashed, self-calls looped. |
-| `shortcuts` | Keycaps for shortcuts, grouped; Mod adapts to Mac (⌘) or others (Ctrl). |
-| `stack` | Tools grouped by layer with versions, notes and links. |
-| `statemachine` | States on a circle with curved, labelled transitions, initial and final states, self loops. |
-| `status` | Services with state (icon + label), uptime and a history strip. |
-| `tree` | A hierarchy as a tidy tree, top-down or left-right; leaves evenly spaced. |
-
-## Data (25)
-
-| WiMark | What it does |
-|---|---|
-| `area` | Filled lines over time; stacked mode shows parts adding up to a total. |
-| `bar` | Compare amounts across categories; several series become grouped bars. |
-| `boxplot` | Median, quartiles, whiskers and outliers for several groups side by side. |
-| `bullet` | Compact bar against a target line over shaded qualitative ranges. |
-| `calendar` | Every day of a year as a cell shaded by value; weeks across, weekdays down. |
-| `donut` | Parts of a whole around a centre that states the total. |
-| `function` | Plot math expressions of x — parsed safely, never evaluated as code; gaps at discontinuities. |
-| `funnel` | Ordered stages shaded light to dark, with the share kept at each step. |
-| `gauge` | One value on a half dial, with optional state bands (icon + label for the current one). |
-| `hbar` | Ranked bars with readable long labels and values at the end. |
-| `heatmap` | A grid shaded light to dark (one hue), with the numbers and a scale. |
-| `histogram` | Distribution of values in equal bins, with the mean marked. |
-| `kpi` | Big numbers with ▲▼ change (good or bad by direction), target bar and sparkline. |
-| `line` | Change over an ordered axis; dashes and end labels keep series apart in every theme. |
-| `lorenz` | A live simulation of the Lorenz system with sliders, Lyapunov exponent and diagnostic plots. |
-| `pie` | Parts of a whole with percentages; small parts fold into “other” after eight. |
-| `polar` | Curves r = f(t) for t over one or more turns, on polar rings. |
-| `radar` | Profiles over several measures; best with up to three series. |
-| `scatter` | Relation between two measures, up to three groups, with an optional trend line. |
-| `sparkline` | Small inline trends in rows with last value, change, minimum and maximum. |
-| `stacked` | Totals and their parts; in percent mode every bar is 100%. |
-| `stats` | Count, mean, median, standard deviation, quartiles and range of one or more samples. |
-| `treemap` | Rectangles sized by value (squarified layout) with labels where they fit. |
-| `waffle` | A grid of 100 squares split by share; each square is 1%. |
-| `waterfall` | Gains (▲) and losses (▼) from a start to an end, with running totals. |
+| WiMark | body | What it does |
+|---|---|---|
+| `adr` | JSON | An architecture decision record (ADR) with status, context, decision and consequences. |
+| `algorithm` | text | Numbered pseudocode: indentation kept, keywords set in bold, $math$ typeset, // comments dimmed. |
+| `annotated` | text | Code with numbered markers on the lines named in "notes" and the explanations listed below. |
+| `architecture` | JSON | Horizontal bands {"Layer": ["component", …]} with "A > B" links across them (dashed with "A ..> B"). |
+| `array` | JSON | Array cells with indices, named pointers (i, j, lo, hi), marked cells and ranges; "steps" makes it a walkthrough. |
+| `badges` | JSON | Shields-style label \| value badges; a state adds an icon, a fourth slot a link. |
+| `bar` | JSON | Bars from [label, value] pairs or grouped series; "horizontal" for long, ranked labels. |
+| `bases` | JSON | Integers in binary, octal, decimal and hexadecimal; negatives in two’s complement over "bits". |
+| `beforeafter` | text | Two code blocks side by side ("=== Before" / "=== After", or any two titles), marked ✕ and ✓. |
+| `benchmark` | JSON | Benchmarks [name, base, new, …] in one unit with the change ▲▼ against the first column, good or bad by "better". |
+| `binarytree` | JSON | A binary tree from a level-order array (heaps, BSTs, LeetCode style); "mark" highlights values, "heap" shows indices. |
+| `bitfield` | JSON | Register or flag fields [name, width, note?] from bit 0 upwards over numbered bits; null is reserved. |
+| `boxplot` | JSON | Groups side by side: median, quartiles, whiskers at 1.5 IQR and outliers as dots. |
+| `callout` | text | A boxed note with an icon and a title: note, tip, important, warning, danger. |
+| `cases` | JSON | A piecewise definition from [value, condition] pairs; word conditions are set as text. |
+| `changelog` | JSON | Releases with added, changed, deprecated, removed, fixed and security entries. |
+| `checklist` | JSON | Items the reader can tick, with progress; ["item", true] starts ticked. Kept per browser. |
+| `classdiagram` | JSON | Classes as {"Name < Parent : Interface": ["+field: type", "+method()"]}; fields and methods split, relations drawn. |
+| `cli` | JSON | A command: usage line, summary, flags [flag, description, default?], subcommands and copyable examples. |
+| `code` | text | Code with file name, language, line numbers from any start, highlighted lines ("2,4-6") and copy. |
+| `codetabs` | text | Code blocks in tabs, one per "=== Language" or "=== file.ext" section; the choice is remembered. |
+| `columns` | text | Two or more columns of text, each started by a "=== Title" line; stacks on phones. |
+| `compare` | JSON | Options against features with ✓ ✕ ◐ or text; "# title" rows group features, one column is highlighted. |
+| `complex` | JSON | Complex numbers "a+bi" on the Argand plane, with \|z\| and arg z listed. |
+| `complexity` | JSON | Algorithms against bounds in O-notation; each bound is graded from constant to exponential. |
+| `config` | JSON | Settings as [key, type, default, description]; a copyable sample file (TOML, YAML or env) is generated from the defaults. |
+| `constants` | JSON | Constants as [symbol, value, unit, name]: symbol and unit in LaTeX, value copyable. |
+| `coverage` | JSON | Coverage per package or file as bars, graded against "good" and "warn" thresholds, with the total. |
+| `cron` | JSON | A five-field cron expression: each field explained, a sentence, and the next runs in the reader’s time zone. |
+| `csv` | text | CSV or TSV text (quoted fields; the separator is guessed when omitted) as a sortable table. |
+| `definition` | text | A numbered definition; the term is set in bold and can be linked to. |
+| `deprecated` | text | A deprecation notice with the version, the replacement and the planned removal. |
+| `deps` | JSON | Dependencies [name, version, license, purpose, url?] with a count by license. |
+| `derivation` | JSON | Step-by-step equalities aligned on the relation, each with a reason in plain text. |
+| `details` | text | A collapsible block for long explanations, derivations or solutions. |
+| `diff` | text | A unified diff as is, or two versions compared line by line; unified or split view, context lines. |
+| `distribution` | JSON | Density or mass function of normal, uniform, exponential, binomial or Poisson, with P(a ≤ X ≤ b), mean and variance. |
+| `donut` | JSON | Parts of a whole with percentages and the total in the centre; past eight, parts fold into "other". |
+| `endpoint` | JSON | Method and path, summary, auth, parameters [name, in, type, description], request body and example responses. |
+| `env` | JSON | Variables as [NAME, "required" or default, example, description] and a .env template to copy. |
+| `erd` | JSON | Tables as {"table": ["column type? pk\|fk table\|unique", …]}; foreign keys become relations, laid out in layers. |
+| `errors` | JSON | Error codes [code, status?, meaning, fix] with the HTTP status graded; searchable when long. |
+| `example` | text | A worked example with number and title, set apart from the main text. |
+| `exercise` | JSON | A question with difficulty, an optional hint and an answer revealed on click. |
+| `filetree` | text | Indented lines as a directory tree with guides; a trailing "/" marks folders, "# text" adds a note, "*" highlights. |
+| `flamegraph` | text | Folded stacks ("main;parse;lex 30", as from pprof or perf) as a flame graph: width = samples; click to zoom. |
+| `flowchart` | text | Lines "A -> B: label" (chains allowed, -.-> dashed) laid out in layers; "X?" is a decision, start and end are rounded. |
+| `fourier` | JSON | A square, sawtooth or triangle wave and its partial Fourier sum; a slider sets the number of terms. |
+| `gallery` | JSON | Images in a grid with a fixed ratio and captions; each is compressed at build. |
+| `gantt` | JSON | Tasks [name, start, end, progress %, group] as bars over dates; no end is a milestone ◆; a line marks today. |
+| `geometry` | JSON | Points by coordinates, then segments "AB", polygons "ABC", "circle O r", "angle BAC" — to scale. |
+| `gitgraph` | text | Lines "commit msg", "branch b", "checkout b", "merge b", "tag t" drawn as commits on branch lanes. |
+| `glossary` | JSON | Terms with definitions, sorted, with a jump-to-letter index; [[Term]] links another entry. |
+| `graph` | JSON | Vertices and edges from "a-b", "a>b", "a-b:5" strings; circle or force layout; degrees in tooltips. |
+| `growth` | JSON | Complexity classes as curves of n on one chart, optionally on a log scale. |
+| `heatmap` | JSON | Rows × columns of numbers shaded in one hue (5 steps) with values: confusion matrices, correlations, latency grids. |
+| `hexdump` | text | Bytes (hex, or text with "ascii": true) with offsets and ASCII; "mark": [[start, length, label]] highlights fields. |
+| `histogram` | JSON | Values counted in equal bins, with the mean and the median marked. |
+| `http` | text | A raw request and response (split at the "HTTP/" status line or by "===" sections); JSON bodies pretty-printed. |
+| `ieee754` | JSON | The bits of a float32 or float64: sign, exponent, mantissa, the exact stored value and the rounding error. |
+| `image` | JSON | A numbered figure; at build the picture is resized, compressed and optionally mapped to the theme palette. |
+| `json` | text | Nested JSON with folding, types, item counts and copy; "open" sets how many levels start unfolded. |
+| `keys` | JSON | Keyboard shortcuts as keycaps; "+" joins keys, a space makes a sequence, Mod adapts to the OS. |
+| `kmap` | JSON | A K-map for 2–4 variables from minterms and don’t-cares, with a minimal sum of products (Quine–McCluskey). |
+| `layers` | JSON | A stack of layers, top to bottom: [name, examples, note?] — network models, software layers, abstraction levels. |
+| `lifecycle` | JSON | Since when an API exists, when it changed, was deprecated or removed, and what replaces it. |
+| `line` | JSON | One line per series over labels; dashes and end labels keep series apart in every theme. |
+| `linkedlist` | JSON | A singly or doubly linked list with named pointers (head, tail, slow, fast) and an optional cycle back to a node. |
+| `logs` | text | Log lines; the level (DEBUG INFO WARN ERROR FATAL, or level=…) becomes a badge with icon, each level can be hidden. |
+| `lorenz` | JSON | A live simulation of the Lorenz system with sliders, Lyapunov exponent and diagnostic plots. |
+| `math` | text | A numbered display equation (LaTeX); several lines stack, & aligns them; "where" explains the symbols. |
+| `matrix` | JSON | A matrix or vector from JSON rows ([1, 2] is a column vector); brackets b p v B V. |
+| `memory` | JSON | Regions [name, size, note?] stacked from a base address with start and end offsets: segments, struct padding, file formats. |
+| `metrics` | JSON | Key numbers as cards [label, value, change?, good\|bad?]: the change gets ▲▼ and a state, never color alone. |
+| `mindmap` | text | Indented lines as a radial map: the first line in the centre, each first-level branch in its own series. |
+| `numberline` | JSON | Intervals in interval notation ("[a, b)", "(-inf, 2]") and labelled points on the real line. |
+| `outline` | text | Indented lines as a foldable outline with numbers 1, 1.1, 1.1.1 — for plans and syllabi. |
+| `packet` | JSON | A protocol header [field, bits] drawn in rows of 32 bits with offsets, like the diagrams of RFCs. |
+| `palette` | JSON | The tokens of the active theme (series, states, heat steps, surfaces) read live: switch theme to compare. |
+| `parametric` | JSON | Curves x(t), y(t) — Lissajous, cycloids, astroids — drawn at equal scale. |
+| `params` | JSON | Parameters as [name, type, description, default?]; "name?" is optional, everything else required. |
+| `pipeline` | JSON | Stages [name, state, duration, jobs?] joined by arrows: ok, failed, running, pending, skipped — each with icon and label. |
+| `plot` | JSON | Plot expressions of x with gaps at discontinuities; ranges accept "2pi"; marked points. |
+| `polar` | JSON | Curves r = f(t) over one or more turns on polar rings and spokes: roses, cardioids, spirals. |
+| `proof` | text | A proof, closed by a tombstone ∎; "fold" hides it behind a click. |
+| `props` | JSON | Specification-style key / value pairs with notes, in one or two columns. |
+| `query` | text | A query ("=== sql") and its result as CSV ("=== result"), with the row count and timing. |
+| `quote` | text | A quotation with author, source and link: epigraphs and citations. |
+| `recurrence` | JSON | Terms of a recurrence (a = previous term, b = the one before, n = index), as a list and a chart. |
+| `references` | JSON | A numbered bibliography: [key, authors, title, year, url?]; each entry gets the anchor #ref-key. |
+| `regex` | text | An editable pattern with flags; matches highlighted in each sample line, capture groups listed. |
+| `riemann` | JSON | Rectangles (left, right, midpoint) or trapezoids under f, the sum, the integral and the error. |
+| `scatter` | JSON | Points per group on two numeric axes, with a least-squares line, its equation and R². |
+| `sequence` | text | Lines "A -> B: text" (--> for replies, A -> A for self calls, "note A: …") as lifelines with numbered messages. |
+| `signature` | JSON | One function or method: highlighted signature, summary, parameters, return value, errors, since and an example. |
+| `slopefield` | JSON | The direction field of an ODE dy/dx = f(x, y); "through" draws solutions through points (RK4). |
+| `sparkline` | JSON | Rows of tiny line charts with the last value, the change, the minimum and the maximum. |
+| `stacktrace` | text | A pasted stack trace: the error on top, frames as function · file:line, your own frames ("mine") highlighted, the rest foldable. |
+| `statemachine` | text | Lines "A -> B: event" as states on a circle with curved transitions; [*] marks initial and final states. |
+| `stats` | JSON | n, mean, standard deviation, min, quartiles, max and a 95% confidence interval of each sample. |
+| `status` | JSON | Services [name, state, uptime, history] with icon and label; history "ooo!x" is a strip of up, degraded, down. |
+| `steps` | JSON | A numbered procedure: each step a line of text or a title with its explanation. |
+| `struct` | JSON | A struct, record or message: fields [name, type, note]; "type?" marks optional, sizes add up when given. |
+| `symbols` | JSON | A table of symbols (LaTeX) and their meaning: the notation section of a paper. |
+| `system` | text | Equations one per line, grouped by a brace and aligned on =, ≤ or ≥; optional solution line. |
+| `table` | JSON | A table from rows of JSON: alignment (l c r per column), caption, sorting, filtering, a totals row. |
+| `tabs` | text | Panes of text behind tabs, each started by a "=== Title" line; keyboard accessible. |
+| `terminal` | text | A shell session: lines starting with "$ " or "> " are commands with a copy button, "# " are comments, the rest is output. |
+| `tests` | JSON | Test results [name, pass\|fail\|skip, duration, message?] with totals and failures first. |
+| `theorem` | text | Theorem, lemma, proposition, corollary, axiom, conjecture or remark, numbered and named. |
+| `timeline` | JSON | Dated events on a line: ["date", "title", "text"?, "state"?]. |
+| `tldr` | text | A short summary box with the key points of a page, one per line. |
+| `toc` | JSON | Numbered contents of the page headings (h2–h4), built when the page loads. |
+| `tradeoffs` | JSON | Pros and cons of a design choice side by side, with icons. |
+| `tree` | text | Indented lines drawn as a tidy tree, top-down or left-right: parse trees, hierarchies, decision trees. |
+| `treemap` | JSON | Sizes as nested rectangles (squarified); "dir/file" paths group by their first part — bundle and disk usage. |
+| `truthtable` | JSON | Every row of one or more boolean expressions, computed; tautologies and contradictions flagged. |
+| `unitcircle` | JSON | Angles (degrees) on the unit circle with cos and sin projections and a value table. |
+| `vectorfield` | JSON | A 2D vector field F(x, y) = (dx, dy) as arrows of equal length, shaded by magnitude. |
+| `vectors` | JSON | Vectors as arrows on a square grid: [name, [x, y], from?, "dashed"?] — sums, projections, bases. |
+| `venn` | JSON | Two or three sets as circles; region keys A, B, AB, ABC… hold the elements, "out" the rest. |
+| `waterfall` | JSON | Phases [name, start, end] on one time axis — request timing, startup phases, pipeline stages — with durations. |
+| `wave` | JSON | Digital signals from WaveDrom-like strings: p clock, 0/1 levels, x unknown, z high-Z, = data with labels, . repeats. |

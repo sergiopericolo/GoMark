@@ -288,12 +288,17 @@ Answer with the result only, between ` + aiOpenTag + ` and ` + aiCloseTag + `, w
 
 func (s *Site) aiWidgetHelp() string {
 	ws, _ := s.Widgets()
-	names := make([]string, 0, len(ws))
+	slices.SortFunc(ws, func(a, b Widget) int { return strings.Compare(a.Name, b.Name) })
+	var b strings.Builder
+	b.WriteString("WiMarks are written as a fence whose first line is ```wimark-<name> followed by optional inline JSON options on the same line, e.g. ```wimark-callout {\"kind\": \"warning\"}; the body is JSON (an array becomes the item list) or, for text WiMarks, plain text; close with ```. Prefer short inline JSON. Available WiMarks:\n")
 	for _, w := range ws {
-		names = append(names, w.Name)
+		kind := "JSON body"
+		if w.TextInput() {
+			kind = "text body"
+		}
+		fmt.Fprintf(&b, "- %s (%s): %s\n", w.Name, kind, w.Summary())
 	}
-	slices.Sort(names)
-	return "Widgets available as ```widget-<name> blocks holding JSON {\"data\": …, \"config\": …}: " + strings.Join(names, ", ") + "."
+	return b.String()
 }
 
 // ─── Operations ─────────────────────────────────────────────────────────────
@@ -335,7 +340,7 @@ func (s *Site) AITranslate(ctx context.Context, page, from, lang string) (*Propo
 		Name:   from + "/" + rel,
 		Doc:    string(src),
 		Task: "Translate the document from " + label(from) + " into " + label(to) + ". Keep the Markdown exactly: same headings and levels, same lists, same links and URLs, same images. " +
-			"Never change fenced code blocks, inline code, math ($…$), HTML or URLs. In ```widget-… blocks keep every JSON key, number, boolean and the structure; translate only human-readable string values (titles, labels, text), never ids, paths, URLs, dates or code.",
+			"Never change fenced code blocks, inline code, math ($…$), HTML or URLs. In ```wimark-… blocks keep the name, every JSON key, number, boolean and the structure of the options and of a JSON body; translate only human-readable string values (titles, labels, text) and text bodies that are prose, never ids, paths, URLs, dates, math or code.",
 	}
 	return s.aiRun(ctx, "translate", to+"/"+rel, from+"/"+rel, src, req, func(out string) ([]string, []string) {
 		return checkTranslation(string(src), out, s)
@@ -377,7 +382,7 @@ func (s *Site) AIConvert(ctx context.Context, file, page, lang string) (*Proposa
 	req.Task = "Turn the document into one GoMark page in Markdown, written in " + lang + " (translate if needed). Start with a single \"# Title\" line. " +
 		"Keep every fact, number and section; do not invent content. Use plain Markdown, and WiMark widgets where they read better than Markdown " +
 		"(tables with formats, timelines, callouts, charts of numbers that are in the document, code blocks). " + s.aiWidgetHelp() +
-		" Each widget block must hold valid JSON. Do not use raw HTML."
+		" Options and JSON bodies must be valid JSON. Do not use raw HTML."
 	return s.aiRun(ctx, "convert", lang+"/"+rel, file, raw, req, func(out string) ([]string, []string) {
 		return checkPage(out, s)
 	})
@@ -393,14 +398,14 @@ func (s *Site) AIWidget(ctx context.Context, rel, description string) (*Proposal
 	if strings.TrimSpace(description) == "" {
 		return nil, errors.New("describe the widget, e.g. gomark ai widget gauge \"a dial for one value\"")
 	}
-	example, _ := fs.ReadFile(Assets, "static/widgets/general/steps.js")
+	example, _ := fs.ReadFile(Assets, "static/widgets/steps.js")
 	req := aiRequest{
 		System: aiSystemBase,
 		Name:   "description",
 		Doc:    description,
 		Task: "Write one WiMark: a JavaScript file for GoMark that registers the widget named \"" + name + "\" and does what the document describes. Rules, all required:\n" +
-			"- start with the doc comment \"/*\\n * " + name + " — <what it does>\" listing data and config;\n" +
-			"- call WiMark.register('" + name + "', { title, description, example: { data, config }, mount: function (el, data, config) { … } }) exactly once;\n" +
+			"- start with the doc comment \"/*\\n * " + name + " — <what it does>\" showing the block syntax;\n" +
+			"- call WiMark.register('" + name + "', { title, description, example: { opts, body }, mount: function (el, v) { … } }) exactly once; v merges the inline JSON options of the fence line and the body (a JSON array body becomes v.items; with input: 'text' the body is v.text); keep the syntax short, tuples like [\"label\", 3] read best;\n" +
 			"- ES5 style (var, function), no modules, no dependencies, no network (no fetch, XMLHttpRequest, import), no eval, no innerHTML: build nodes with WiMark.h(tag, props, ...children) and WiMark.svg(...), text with WiMark.inline(text);\n" +
 			"- never write colors or fonts: give elements classes; series colors come from WiMark.series(i), states from 'wm-' + WiMark.state(name), charts from WiMark.chart(el, opts);\n" +
 			"- the example must show the widget well when the block is empty.\n" +

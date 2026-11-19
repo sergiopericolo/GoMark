@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"html"
 	"html/template"
 	"regexp"
 	"slices"
@@ -11,7 +12,9 @@ import (
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer"
 	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 )
 
 // ToCItem is an outline entry (h1–h3).
@@ -22,14 +25,55 @@ type ToCItem struct {
 	Children []*ToCItem
 }
 
-// md is the shared parser: GFM, math, heading ids. Widget fences stay code
-// blocks; static/engine.js mounts them.
+// md is the shared parser: GFM, math, heading ids, WiMark fences.
 var md = goldmark.New(
 	goldmark.WithParserOptions(parser.WithAutoHeadingID()),
 	goldmark.WithExtensions(extension.GFM, mathExt),
+	goldmark.WithRendererOptions(renderer.WithNodeRenderers(util.Prioritized(fenceRenderer{}, 100))),
 )
 
-var widgetFenceRe = regexp.MustCompile("(?m)^```widget-([A-Za-z0-9_-]+)")
+var wimarkFenceRe = regexp.MustCompile("(?m)^```wimark-([A-Za-z0-9_-]+)")
+
+// fenceRenderer renders fenced code. A ```wimark-<name> {options} fence
+// becomes a source block that static/engine.js turns into the WiMark: the
+// name and the inline JSON options travel as data attributes, the body stays
+// the text of the block (readable without JavaScript).
+type fenceRenderer struct{}
+
+func (fenceRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
+	reg.Register(ast.KindFencedCodeBlock, func(w util.BufWriter, src []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			w.WriteString("</code></pre>\n")
+			return ast.WalkContinue, nil
+		}
+		n := node.(*ast.FencedCodeBlock)
+		info := ""
+		if n.Info != nil {
+			info = strings.TrimSpace(string(n.Info.Segment.Value(src)))
+		}
+		lang, opts := info, ""
+		if i := strings.IndexAny(info, " \t"); i >= 0 {
+			lang, opts = info[:i], strings.TrimSpace(info[i:])
+		}
+		if name, ok := strings.CutPrefix(lang, "wimark-"); ok {
+			w.WriteString(`<pre class="wimark-src"><code class="nohighlight" data-wimark="` + html.EscapeString(name) + `"`)
+			if opts != "" {
+				w.WriteString(` data-opts="` + html.EscapeString(opts) + `"`)
+			}
+		} else {
+			w.WriteString("<pre><code")
+			if lang != "" {
+				w.WriteString(` class="language-` + html.EscapeString(lang) + `"`)
+			}
+		}
+		w.WriteByte('>')
+		for i := range n.Lines().Len() {
+			line := n.Lines().At(i)
+			w.WriteString(html.EscapeString(string(line.Value(src))))
+		}
+		return ast.WalkContinue, nil
+	})
+}
 
 // renderMarkdown returns HTML, outline and title (first h1).
 func renderMarkdown(src []byte) (body template.HTML, toc []*ToCItem, title string) {
@@ -107,10 +151,10 @@ func slugify(s string) string {
 	return "section"
 }
 
-// detectWidgets lists the widgets used in src, once each.
+// detectWidgets lists the WiMarks used in src, once each.
 func detectWidgets(src []byte) []string {
 	var out []string
-	for _, m := range widgetFenceRe.FindAllSubmatch(src, -1) {
+	for _, m := range wimarkFenceRe.FindAllSubmatch(src, -1) {
 		if name := string(m[1]); !slices.Contains(out, name) {
 			out = append(out, name)
 		}

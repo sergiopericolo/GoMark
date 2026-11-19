@@ -63,7 +63,7 @@
   /* ─── Code blocks ───────────────────────────────────────────────────── */
   function initCode() {
     Array.prototype.forEach.call(document.querySelectorAll('.page-body pre > code'), function (code) {
-      if (/language-widget-/.test(code.className) || code.closest('.wm')) return; // widgets draw their own
+      if (code.hasAttribute('data-wimark') || code.closest('.wm')) return; // WiMarks draw their own
       var pre = code.parentNode;
       var m = /language-([\w+#-]+)/.exec(code.className);
       var lang = m ? m[1] : 'text';

@@ -104,7 +104,7 @@ func writePNG(t *testing.T, p string, w, h int) {
 func TestImageWiMarkCompressesAndMapsToThePalette(t *testing.T) {
 	s := testSite(t)
 	writePNG(t, filepath.Join(s.Dir, "media", "photo.png"), 400, 200)
-	page := "# Photo\n\n```widget-image\n{ \"data\": { \"src\": \"media/photo.png\", \"alt\": \"x\" }, \"config\": { \"max_width\": 200, \"palette\": true } }\n```\n"
+	page := "# Photo\n\n```wimark-image {\"src\": \"media/photo.png\", \"alt\": \"x\", \"max_width\": 200, \"palette\": true}\n```\n"
 	if err := os.WriteFile(filepath.Join(s.Dir, "en", "notes", "photo.md"), []byte(page), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestImageWiMarkCompressesAndMapsToThePalette(t *testing.T) {
 
 func TestImageWiMarkStaysInsideTheSite(t *testing.T) {
 	s := testSite(t)
-	page := "```widget-image\n{ \"data\": { \"src\": \"../../etc/passwd\" } }\n```\n"
+	page := "```wimark-image\n{\"src\": \"../../etc/passwd\"}\n```\n"
 	if err := os.WriteFile(filepath.Join(s.Dir, "en", "notes", "bad.md"), []byte(page), 0o644); err != nil {
 		t.Fatal(err)
 	}

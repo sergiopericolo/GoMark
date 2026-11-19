@@ -16,7 +16,7 @@ The CLI is a thin layer on top; any other front end can reuse it as is.
 | `engine/section.go` | `sections/<id>.toml`: layout, columns, theme, per-section style, grid tracks |
 | `engine/theme.go` | theme classes, palettes, `CheckTheme` |
 | `engine/image.go`, `media.go` | image encoder (resize, JPEG/PNG, palette + dithering); image WiMark at build, `media/` |
-| `engine/catalog.go` | WiMark classes, the catalog page |
+| `engine/catalog.go` | the WiMark catalog page |
 | `engine/rules.go` | the WiMark rules (`CheckWidgetSource`) |
 | `engine/ai.go`, `aiguard.go` | `gomark ai`: providers, proposals, apply; output checks |
 | `engine/settings.go` | `Settings`, `Get`, `Set`: every value by dotted key |
@@ -101,10 +101,12 @@ switch from `Switch`.
 CSS: `layout.css` (geometry), `theme.css` (look, token fallbacks),
 `wimark.css` (every widget, tokens only), `themes/<name>.css` (the palette).
 
-Widgets register with `WiMark.register(name, { title, description, example, choices, mount })`
-(`static/widgets.js` is the runtime; `Widgets` stays as an alias).
-Go detects the widgets each page uses and loads only their scripts.
-`engine.js` mounts every ```` ```widget-<name> ```` block; an empty block uses
-`example`. The widget name is the file name; folders are free. Site widgets
+WiMarks register with `WiMark.register(name, { title, description, input, example, choices, mount })`
+(`static/widgets.js` is the runtime). Go renders a ```` ```wimark-<name> {options} ````
+fence as `<pre class="wimark-src"><code data-wimark data-opts>` (the body stays
+readable without JavaScript), detects the WiMarks each page uses and loads only
+their scripts; `engine.js` mounts them. An empty block uses `example`. The name
+is the file name: engine WiMarks are one flat list in `static/widgets/`, site
+ones may use folders. Site widgets
 (`<site>/widgets/`) are merged with the engine's and win on equal names; both
 end up in `<out>/static/widgets/`.

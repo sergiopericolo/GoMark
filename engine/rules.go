@@ -12,7 +12,7 @@ import (
 // code or reaching the network. The engine's own widgets are tested against
 // them, and widgets written by an AI must pass them before they can be applied.
 var (
-	registerRe  = regexp.MustCompile(`(?m)^\s*(?:WiMark|Widgets)\.register\('([a-z0-9-]+)'`)
+	registerRe  = regexp.MustCompile(`(?m)^\s*WiMark\.register\('([a-z0-9-]+)'`)
 	widgetDocRe = regexp.MustCompile(`^/\*\n \* ([a-z0-9-]+) — `)
 	widgetRules = map[string]*regexp.Regexp{
 		"a hex color":          regexp.MustCompile(`#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?\b|['"]#[0-9A-Fa-f]{3,4}['"]`),

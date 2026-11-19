@@ -36,14 +36,13 @@ Flags may appear anywhere. Exit codes: `0` ok, `1` error, `2` wrong usage.
 | `section` · `section add <id> [title] [depth]` · `section rm <id>` | sections (`-delete` removes folders) |
 | `lang` · `lang add <code> [label]` · `lang rm <code>` | languages (the first is the default) |
 | `theme [name]` · `theme check` | list themes with their class, set one, or check every theme's palette and tokens |
-| `widget` · `widget new <[folder/]name>` | list WiMarks by class, or create one in `<site>/widgets/` |
+| `widget` · `widget new <[folder/]name>` | list WiMarks, or create one in `<site>/widgets/` |
 | `widget preview` · `widget catalog` | serve the catalog with editors and a theme switch (`-addr`), or write it (`-out`) |
 
-## Media and AI
+## AI
 
 | Command | |
 |---|---|
-| `image <in> <out> [theme]` | compress an image (`-width`); with a theme, map it to the theme's palette (PNG) |
 | `ai translate <section/page.md>` | propose a translation (`-lang`, `-from`) |
 | `ai convert <file> <section/page.md>` | propose a page made from a PDF, DOCX, HTML, text… (`-lang`) |
 | `ai widget <[folder/]name> "<description>"` | propose a site WiMark |

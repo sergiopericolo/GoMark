@@ -30,11 +30,29 @@ var (
 	urlLikeRe    = regexp.MustCompile(`^(?:[a-z]+:|/|#|\.{1,2}/|[\w./-]+\.(?:png|jpe?g|gif|svg|webp|pdf|md|js|css|html?)$)|^\d{4}-\d{2}-\d{2}`)
 	// JSON keys whose string values are identifiers, never prose.
 	protectedKeys = []string{"src", "original", "href", "url", "id", "date", "start", "end", "lang", "code", "path", "from", "to",
-		"pattern", "flags", "tex", "file", "key", "type", "state", "marker", "branch", "method", "status", "version", "keys", "format", "palette", "theme"}
+		"pattern", "flags", "tex", "file", "key", "type", "state", "marker", "branch", "method", "status", "version", "keys", "format", "palette", "theme",
+		"kind", "rule", "fn", "f", "dx", "dy", "r", "expr", "sig", "wave", "dist", "mode", "dir", "layout", "precision", "better", "mine", "sep", "hl", "auth", "db",
+		"vars", "ones", "dc", "init", "points", "links", "ptr", "mark", "cols", "sets", "since", "added", "deprecated", "removed", "use", "n"}
+	// stateWords are the fixed state names of WiMark tuples ["build", "passing", "ok"]:
+	// they stay in English in every language.
+	stateWords = map[string]bool{"ok": true, "done": true, "pass": true, "fail": true, "skip": true, "warn": true, "warning": true, "error": true,
+		"danger": true, "tip": true, "note": true, "important": true, "info": true, "pending": true, "running": true, "todo": true, "degraded": true,
+		"down": true, "up": true, "good": true, "bad": true, "pos": true, "neg": true, "accepted": true, "proposed": true, "rejected": true, "superseded": true}
 )
 
 // fence is one fenced code block of a Markdown text.
 type fence struct{ info, body string }
+
+// wimark splits a fence's info into the WiMark name and its inline options;
+// ok is false for a plain code block.
+func (f fence) wimark() (name, opts string, ok bool) {
+	rest, ok := strings.CutPrefix(f.info, "wimark-")
+	if !ok {
+		return "", "", false
+	}
+	name, opts, _ = strings.Cut(rest, " ")
+	return name, strings.TrimSpace(opts), true
+}
 
 // splitFences returns the fenced blocks and the text outside them.
 func splitFences(md string) (fences []fence, prose string) {
@@ -97,31 +115,36 @@ func checkTranslation(src, out string, s *Site) (problems, notes []string) {
 	} else {
 		for i := range sf {
 			a, b := sf[i], of[i]
-			if a.info != b.info {
-				problems = append(problems, fmt.Sprintf("block %d changed kind: %q → %q", i+1, a.info, b.info))
-				continue
-			}
-			if !strings.HasPrefix(a.info, "widget-") {
-				if a.body != b.body {
+			an, ao, aw := a.wimark()
+			bn, bo, _ := b.wimark()
+			if !aw {
+				if a.info != b.info {
+					problems = append(problems, fmt.Sprintf("block %d changed kind: %q → %q", i+1, a.info, b.info))
+				} else if a.body != b.body {
 					problems = append(problems, fmt.Sprintf("code block %d (%s) was changed", i+1, cmp.Or(a.info, "text")))
 				}
 				continue
 			}
+			if an != bn {
+				problems = append(problems, fmt.Sprintf("block %d changed WiMark: %q → %q", i+1, an, bn))
+				continue
+			}
+			what := "wimark-" + an
+			if why := sameJSON(ao, bo); why != "" {
+				problems = append(problems, fmt.Sprintf("block %d (%s) options: %s", i+1, what, why))
+			}
 			if strings.TrimSpace(a.body) == "" {
 				if strings.TrimSpace(b.body) != "" {
-					problems = append(problems, fmt.Sprintf("block %d (%s) was empty and got content", i+1, a.info))
+					problems = append(problems, fmt.Sprintf("block %d (%s) was empty and got content", i+1, what))
 				}
 				continue
 			}
-			var x, y any
-			if err := json.Unmarshal([]byte(b.body), &y); err != nil {
-				problems = append(problems, fmt.Sprintf("block %d (%s): invalid JSON: %v", i+1, a.info, err))
-				continue
+			var x any
+			if json.Unmarshal([]byte(a.body), &x) != nil {
+				continue // a text body: translated freely
 			}
-			if json.Unmarshal([]byte(a.body), &x) == nil {
-				if why := sameShape(x, y, ""); why != "" {
-					problems = append(problems, fmt.Sprintf("block %d (%s): %s", i+1, a.info, why))
-				}
+			if why := sameJSON(a.body, b.body); why != "" {
+				problems = append(problems, fmt.Sprintf("block %d (%s): %s", i+1, what, why))
 			}
 		}
 	}
@@ -184,12 +207,30 @@ func sameShape(a, b any, at string) string {
 		if urlLikeRe.MatchString(x) && x != y {
 			return fmt.Sprintf("%s: %q looks like a URL, path or date and must not change", at, x)
 		}
+		if (stateWords[x] || strings.HasPrefix(x, "\\")) && x != y {
+			return fmt.Sprintf("%s: %q is a state or LaTeX and must not change", at, x)
+		}
 	default:
 		if !reflect.DeepEqual(a, b) {
 			return fmt.Sprintf("%s: value changed %v → %v", at, a, b)
 		}
 	}
 	return ""
+}
+
+// sameJSON compares two JSON sources: b must parse and keep a's shape.
+func sameJSON(a, b string) string {
+	if strings.TrimSpace(a) == "" && strings.TrimSpace(b) == "" {
+		return ""
+	}
+	var x, y any
+	if err := json.Unmarshal([]byte(b), &y); err != nil {
+		return fmt.Sprintf("invalid JSON: %v", err)
+	}
+	if json.Unmarshal([]byte(a), &x) != nil {
+		return ""
+	}
+	return sameShape(x, y, "")
 }
 
 // checkPage checks a converted page: a title, known widgets with valid JSON,
@@ -201,26 +242,32 @@ func checkPage(out string, s *Site) (problems, notes []string) {
 	if !strings.HasPrefix(strings.TrimSpace(out), "# ") {
 		problems = append(problems, "the page must start with a \"# Title\" line")
 	}
-	known := map[string]bool{}
+	known := map[string]Widget{}
 	if ws, err := s.Widgets(); err == nil {
 		for _, w := range ws {
-			known[w.Name] = true
+			known[w.Name] = w
 		}
 	}
 	fences, prose := splitFences(out)
 	for i, f := range fences {
-		name, ok := strings.CutPrefix(f.info, "widget-")
+		name, opts, ok := f.wimark()
 		if !ok {
 			continue
 		}
-		if !known[name] {
-			problems = append(problems, fmt.Sprintf("block %d uses an unknown widget %q", i+1, name))
+		w, ok := known[name]
+		if !ok {
+			problems = append(problems, fmt.Sprintf("block %d uses an unknown WiMark %q", i+1, name))
 			continue
 		}
 		var v any
-		if strings.TrimSpace(f.body) != "" {
+		if opts != "" {
+			if err := json.Unmarshal([]byte(opts), &v); err != nil {
+				problems = append(problems, fmt.Sprintf("block %d (wimark-%s): options: invalid JSON: %v", i+1, name, err))
+			}
+		}
+		if strings.TrimSpace(f.body) != "" && !w.TextInput() {
 			if err := json.Unmarshal([]byte(f.body), &v); err != nil {
-				problems = append(problems, fmt.Sprintf("block %d (widget-%s): invalid JSON: %v", i+1, name, err))
+				problems = append(problems, fmt.Sprintf("block %d (wimark-%s): invalid JSON: %v", i+1, name, err))
 			}
 		}
 	}
@@ -264,7 +311,7 @@ func checkWidget(ctx context.Context, name, code string, s *Site) (problems, not
 	if err != nil {
 		return problems, append(notes, "node is not installed: the syntax was not checked")
 	}
-	tmp, err := os.CreateTemp("", "gomark-widget-*.js")
+	tmp, err := os.CreateTemp("", "gomark-wimark-*.js")
 	if err != nil {
 		return problems, notes
 	}

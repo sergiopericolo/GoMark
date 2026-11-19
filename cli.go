@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -29,7 +30,6 @@ type ctx struct {
 	site, lang, out, addr, msg string
 	from                       string
 	build, del, force          bool
-	width                      int
 }
 
 // parse reads the shared flags, allowed anywhere.
@@ -46,7 +46,6 @@ func parse(c command, args []string) (*ctx, error) {
 	fs.BoolVar(&cx.build, "build", false, "")
 	fs.BoolVar(&cx.del, "delete", false, "")
 	fs.BoolVar(&cx.force, "force", false, "")
-	fs.IntVar(&cx.width, "width", 0, "")
 	for {
 		if err := fs.Parse(args); errors.Is(err, flag.ErrHelp) {
 			fmt.Printf("usage: %s\n%s\n\n%s", usage(c), c.help, flagsHelp)
@@ -491,22 +490,6 @@ func cmdTheme(cx *ctx) error {
 	return nil
 }
 
-func cmdImage(cx *ctx) error {
-	if err := cx.arity(2, 3); err != nil {
-		return err
-	}
-	st, err := engine.CompressImage(cx.arg(0), cx.arg(1), engine.ImageOptions{Palette: cx.arg(2), MaxWidth: cx.width})
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s → %s: %s → %s (%d%%)", cx.arg(0), cx.arg(1), size(st.Before), size(st.After), 100*st.After/max(st.Before, 1))
-	if st.Colors > 0 {
-		fmt.Printf(", %d colors of theme %s", st.Colors, cx.arg(2))
-	}
-	fmt.Printf(", %d×%d\n", st.Width, st.Height)
-	return nil
-}
-
 func size(n int64) string {
 	if n < 1024 {
 		return fmt.Sprintf("%d B", n)
@@ -518,17 +501,16 @@ func cmdWidget(cx *ctx) error {
 	s, _ := cx.open() // outside a site: engine widgets only, default look
 	switch cx.arg(0) {
 	case "":
-		classes, err := s.CatalogClasses()
-		for _, c := range classes {
-			fmt.Printf("%s (%d)\n", c.Title, len(c.Widgets))
-			for _, w := range c.Widgets {
-				from := "static/" + w.Path
-				if w.Site {
-					from = w.Path
-				}
-				fmt.Printf("  %-14s %s\n", w.Name, from)
+		ws, err := s.Widgets()
+		slices.SortFunc(ws, func(a, b engine.Widget) int { return strings.Compare(a.Name, b.Name) })
+		for _, w := range ws {
+			site := ""
+			if w.Site {
+				site = " (site)"
 			}
+			fmt.Printf("  %-14s %s%s\n", w.Name, w.Summary(), site)
 		}
+		fmt.Printf("%d WiMarks: use them as ```wimark-<name> {options} blocks\n", len(ws))
 		return err
 	case "new":
 		if err := cx.arity(2, 2); err != nil {
@@ -540,7 +522,7 @@ func cmdWidget(cx *ctx) error {
 		file, err := s.NewWidget(cx.arg(1))
 		if err == nil {
 			name := path.Base(strings.TrimSuffix(file, ".js"))
-			fmt.Printf("created %s\nuse it with a ```widget-%s block; see it in: gomark widget preview\n", file, name)
+			fmt.Printf("created %s\nuse it with a ```wimark-%s block; see it in: gomark widget preview\n", file, name)
 		}
 		return err
 	case "catalog":

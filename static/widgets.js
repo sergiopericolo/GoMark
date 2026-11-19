@@ -1,9 +1,15 @@
 /*
  * GoMark — widgets.js: the WiMark runtime.
  *
- * A WiMark is registered once and mounted on every ```widget-<name> block:
- *   WiMark.register(name, { title, description, example, choices, dependencies, mount })
- *   mount(el, data, config) builds the widget inside el.
+ * A WiMark is registered once and mounted on every block that names it:
+ *
+ *   ```wimark-<name> {"inline": "JSON options"}
+ *   body: JSON, or plain text for text WiMarks
+ *   ```
+ *
+ *   WiMark.register(name, { title, description, input, defaults, example, choices, dependencies, mount })
+ *   mount(el, v) builds the widget inside el. v merges, in order: defaults,
+ *   the fence options, the body (see values). example is { opts, body }.
  *
  * Rules every WiMark follows (checked by the engine's tests):
  *   - no colors and no fonts in JavaScript: elements get classes, and the theme
@@ -11,8 +17,6 @@
  *   - series use WiMark.series(i), states use WiMark.state(name): identity is
  *     never color alone (labels, icons, dashes, textures);
  *   - text goes in with textContent (WiMark.h) or WiMark.inline, never as HTML.
- *
- * `Widgets` stays as an alias for site widgets written before WiMark.
  */
 (function (global) {
   'use strict';
@@ -82,21 +86,27 @@
     return (G.root || './') + src;
   }
 
-  // inline renders **bold**, *em*, `code`, ~~del~~ and [text](url) as nodes.
-  var INLINE = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|~~([^~]+)~~|\[([^\]]+)\]\(([^)\s]+)\))/;
+  // tex wraps LaTeX for MathJax: inline \( \) or display \[ \].
+  function tex(src, display) {
+    return h('span', 'math math-' + (display ? 'display' : 'inline'), (display ? '\\[' : '\\(') + src + (display ? '\\]' : '\\)'));
+  }
+
+  // inline renders $math$, **bold**, *em*, `code`, ~~del~~ and [text](url) as nodes.
+  var INLINE = /(\$([^$\n]+)\$|\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|~~([^~]+)~~|\[([^\]]+)\]\(([^)\s]+)\))/;
   function inline(text) {
     var frag = document.createDocumentFragment();
     var rest = String(text === undefined || text === null ? '' : text);
     var m;
     while ((m = INLINE.exec(rest))) {
       if (m.index) frag.appendChild(document.createTextNode(rest.slice(0, m.index)));
-      if (m[2] !== undefined) frag.appendChild(h('strong', null, inline(m[2])));
-      else if (m[3] !== undefined) frag.appendChild(h('em', null, inline(m[3])));
-      else if (m[4] !== undefined) frag.appendChild(h('code', null, m[4]));
-      else if (m[5] !== undefined) frag.appendChild(h('del', null, inline(m[5])));
+      if (m[2] !== undefined) frag.appendChild(tex(m[2]));
+      else if (m[3] !== undefined) frag.appendChild(h('strong', null, inline(m[3])));
+      else if (m[4] !== undefined) frag.appendChild(h('em', null, inline(m[4])));
+      else if (m[5] !== undefined) frag.appendChild(h('code', null, m[5]));
+      else if (m[6] !== undefined) frag.appendChild(h('del', null, inline(m[6])));
       else {
-        var href = url(m[7]);
-        frag.appendChild(href ? h('a', { href: href }, inline(m[6])) : document.createTextNode(m[6]));
+        var href = url(m[8]);
+        frag.appendChild(href ? h('a', { href: href }, inline(m[7])) : document.createTextNode(m[7]));
       }
       rest = rest.slice(m.index + m[0].length);
     }
@@ -109,6 +119,24 @@
     var frag = document.createDocumentFragment();
     var parts = Array.isArray(text) ? text : String(text === undefined || text === null ? '' : text).split(/\n\s*\n/);
     parts.forEach(function (p) { if (String(p).trim()) frag.appendChild(h('p', cls || 'wm-text', inline(String(p).trim()))); });
+    return frag;
+  }
+
+  // prose renders a text body: paragraphs split by blank lines, "- " and
+  // "1. " lists, $$…$$ display math; inline markup inside.
+  function prose(text, cls) {
+    var frag = document.createDocumentFragment();
+    String(text === undefined || text === null ? '' : text).split(/\n\s*\n/).forEach(function (block) {
+      var b = block.trim();
+      if (!b) return;
+      var ls = b.split('\n');
+      if (/^\$\$[\s\S]*\$\$$/.test(b)) frag.appendChild(h('div', 'wm-display', tex(b.slice(2, -2).trim(), true)));
+      else if (ls.every(function (l) { return /^\s*[-*] /.test(l); })) {
+        frag.appendChild(h('ul', 'wm-list', ls.map(function (l) { return h('li', null, inline(l.replace(/^\s*[-*] /, ''))); })));
+      } else if (ls.every(function (l) { return /^\s*\d+[.)] /.test(l); })) {
+        frag.appendChild(h('ol', 'wm-list wm-olist', ls.map(function (l) { return h('li', null, inline(l.replace(/^\s*\d+[.)] /, ''))); })));
+      } else frag.appendChild(h('p', cls || 'wm-text', inline(ls.map(function (l) { return l.trim(); }).join(' '))));
+    });
     return frag;
   }
 
@@ -151,6 +179,64 @@
     return [lo, hi];
   }
   function sum(values) { return values.reduce(function (a, b) { return a + num(b); }, 0); }
+
+  // rows normalizes a list of entries: a tuple ["a", 1] gets the names in
+  // keys (extra slots in .rest), an object stays, a bare value fills keys[0].
+  // An object instead of a list gives one { key, value } entry per key.
+  function rows(items, keys) {
+    return list(items).map(function (it) {
+      var o = {};
+      if (Array.isArray(it)) {
+        keys.forEach(function (k, i) { if (i < it.length) o[k] = it[i]; });
+        o.rest = it.slice(keys.length);
+        return o;
+      }
+      if (it && typeof it === 'object') {
+        if ('key' in it && 'value' in it && Object.keys(it).length === 2 && keys[0] !== 'key') {
+          o[keys[0]] = it.key;
+          if (Array.isArray(it.value)) keys.slice(1).forEach(function (k, i) { o[k] = it.value[i]; });
+          else o[keys[1]] = it.value;
+          return o;
+        }
+        return it;
+      }
+      o[keys[0]] = it;
+      return o;
+    });
+  }
+
+  // lines splits a text body into its non-empty lines (right-trimmed).
+  function lines(text) {
+    return String(text || '').split('\n').map(function (l) { return l.replace(/\s+$/, ''); }).filter(Boolean);
+  }
+
+  // sections splits a text body on "=== title" lines → [{ title, text }];
+  // text before the first marker is a section without a title.
+  function sections(text) {
+    var out = [], cur = null;
+    String(text || '').split('\n').forEach(function (ln) {
+      var m = /^===(?:\s+(.*))?\s*$/.exec(ln);
+      if (m) { cur = { title: (m[1] || '').trim(), lines: [] }; out.push(cur); return; }
+      if (!cur) { cur = { title: '', lines: [] }; out.push(cur); }
+      cur.lines.push(ln);
+    });
+    return out.map(function (s) { return { title: s.title, text: s.lines.join('\n').replace(/^\s*\n/, '').replace(/\s+$/, '') }; })
+      .filter(function (s) { return s.title || s.text; });
+  }
+
+  // json writes a value the way a WiMark block reads best: on one line when
+  // short, otherwise one entry per line with every entry on one line.
+  function inlineJSON(v) {
+    if (Array.isArray(v)) return '[' + v.map(inlineJSON).join(', ') + ']';
+    if (v && typeof v === 'object') return '{' + Object.keys(v).map(function (k) { return JSON.stringify(k) + ': ' + inlineJSON(v[k]); }).join(', ') + '}';
+    return JSON.stringify(v === undefined ? null : v);
+  }
+  function json(v) {
+    var one = inlineJSON(v);
+    if (one.length <= 72 || !v || typeof v !== 'object') return one;
+    if (Array.isArray(v)) return '[\n  ' + v.map(inlineJSON).join(',\n  ') + '\n]';
+    return '{\n  ' + Object.keys(v).map(function (k) { return JSON.stringify(k) + ': ' + inlineJSON(v[k]); }).join(',\n  ') + '\n}';
+  }
 
   /* ─── Tabular data ────────────────────────────────────────────────────── */
   // tabular accepts { columns, rows } (rows as arrays or objects), an array of
@@ -521,6 +607,92 @@
     return function () { return root(arguments); };
   }
 
+  // value reads a number or a constant expression ("2pi", "pi/4", "1e3").
+  function value(x, def) {
+    if (typeof x === 'number') return x;
+    if (x === undefined || x === null || x === '') return def;
+    try { var n = compile(String(x), [])(); return isFinite(n) ? n : def; } catch (e) { return def; }
+  }
+
+  // plotPath samples f over [x0, x1] into an SVG path for scales sx, sy,
+  // lifting the pen at gaps and jumps (tan, 1/x) instead of joining them.
+  function plotPath(f, x0, x1, sx, sy, n) {
+    n = n || 400;
+    var d = '', pen = false, prev = NaN, H = Math.abs(sy.invert ? sy(sy.domain[0]) - sy(sy.domain[1]) : 300);
+    for (var i = 0; i <= n; i++) {
+      var xv = x0 + ((x1 - x0) * i) / n, yv = f(xv), py = sy(yv);
+      var ok = isFinite(yv) && !(isFinite(prev) && Math.abs(py - prev) > H * 1.5);
+      if (ok) { d += (pen ? ' L' : ' M') + sx(xv).toFixed(2) + ',' + Math.max(-H, Math.min(2 * H, py)).toFixed(2); pen = true; }
+      else pen = false;
+      prev = isFinite(yv) ? py : NaN;
+    }
+    return d;
+  }
+
+  // grid renders a table with optional sorting, filtering and a totals row:
+  // shared by table, csv and query. opts: caption, align, sort, filter, total, zebra.
+  function grid(el, head, rows, opts) {
+    opts = opts || {};
+    var align = (opts.align || []).slice();
+    var n = Math.max(head.length, Math.max.apply(null, rows.map(function (r) { return r.length; }).concat([0])));
+    for (var i = 0; i < n; i++) if (!align[i] && rows.length && rows.every(function (r) { return typeof r[i] === 'number' || r[i] === undefined || r[i] === null; })) align[i] = 'right';
+    var dir = {}, sortCol = -1, query = '', wrap = h('div');
+    var text = function (x) { return x instanceof Node ? x.textContent : x; };
+    function draw() {
+      var shown = rows.filter(function (r) { return !query || r.map(text).join(' ').toLowerCase().indexOf(query) >= 0; });
+      if (sortCol >= 0) shown = shown.slice().sort(function (a, b) {
+        var x = text(a[sortCol]), y = text(b[sortCol]);
+        return dir[sortCol] * (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true }));
+      });
+      var heads = head.map(function (c, i) {
+        if (!opts.sort) return c;
+        var b = h('button', { type: 'button', class: 'wm-sort' + (sortCol === i ? ' on' : '') }, inline(c), sortCol === i ? (dir[i] > 0 ? ' ▲' : ' ▼') : '');
+        b.addEventListener('click', function () { dir[i] = sortCol === i ? -dir[i] : 1; sortCol = i; draw(); });
+        return b;
+      });
+      var body = shown.map(function (r) { return r.map(function (x) { return x instanceof Node ? x.cloneNode(true) : cell(x); }); });
+      if (opts.total) {
+        body.push(head.map(function (c, i) {
+          var nums = shown.map(function (r) { return r[i]; }).filter(function (x) { return typeof x === 'number'; });
+          return i === 0 ? h('strong', null, t('total')) : nums.length ? h('strong', null, fmt(sum(nums))) : '';
+        }));
+      }
+      wrap.textContent = '';
+      wrap.appendChild(table(heads, body, { caption: opts.caption, align: align, cls: (opts.zebra ? 'wm-zebra' : '') + (opts.total ? ' wm-has-total' : '') }));
+    }
+    if (opts.filter) {
+      var input = h('input', { type: 'search', class: 'wm-input wm-table-filter', placeholder: t('search'), 'aria-label': t('search') });
+      input.addEventListener('input', function () { query = input.value.trim().toLowerCase(); draw(); });
+      el.appendChild(input);
+    }
+    el.appendChild(wrap);
+    draw();
+  }
+
+  // parseCSV splits CSV/TSV text (quoted fields; separator guessed when
+  // omitted) into rows; numeric cells become numbers, except in the header.
+  function parseCSV(text, sep) {
+    text = String(text || '');
+    var first = text.split('\n')[0];
+    sep = sep || ['\t', ';', ',', '|'].reduce(function (b, s) { return first.split(s).length > first.split(b).length ? s : b; }, ',');
+    var rows = [], row = [], cur = '', q = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (q) { if (ch === '"' && text[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') q = false; else cur += ch; }
+      else if (ch === '"') q = true;
+      else if (ch === sep) { row.push(cur); cur = ''; }
+      else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else if (ch !== '\r') cur += ch;
+    }
+    if (cur || row.length) { row.push(cur); rows.push(row); }
+    return rows.map(function (r, k) { return k === 0 ? r : r.map(function (c) { var s2 = c.trim(); return s2 !== '' && isFinite(s2) ? Number(s2) : c; }); });
+  }
+
+  // aligns maps "lcr" letters to the align classes of table().
+  function aligns(spec) {
+    return String(spec || '').split('').map(function (c) { return { l: 'left', c: 'center', r: 'right' }[c] || null; });
+  }
+
   /* ─── Parts of a whole ────────────────────────────────────────────────── */
   // parts draws a pie (config.hole = 0) or a donut: shared by both WiMarks.
   function parts(el, data, config) {
@@ -756,53 +928,79 @@
     registry[name] = def;
   }
 
-  // mount builds widget name inside host from a { data, config } payload.
-  function mount(host, name, payload) {
+  function parseJSON(src, what) {
+    try { return JSON.parse(src); } catch (e) { throw new Error(what + ': invalid JSON (' + e.message + ')'); }
+  }
+
+  // values merges what a block says into one object: the WiMark's defaults,
+  // the fence options (a JSON object), then the body. A text WiMark
+  // (input: 'text') gets the body as v.text; otherwise the body is JSON: an
+  // object adds its keys, an array becomes v.items, a single value v.value.
+  function values(def, opts, body) {
+    var v = Object.assign({}, def.defaults || {});
+    if (typeof opts === 'string') opts = opts.trim() ? parseJSON(opts, 'options') : {};
+    if (!opts || typeof opts !== 'object' || Array.isArray(opts)) throw new Error('the options must be a JSON object: {"key": value}');
+    Object.assign(v, opts);
+    body = String(body === undefined || body === null ? '' : body).replace(/^\s*\n/, '').replace(/\s+$/, '');
+    if (!body.trim()) return v;
+    if (def.input === 'text') { v.text = body; return v; }
+    var b = parseJSON(body, 'body');
+    if (Array.isArray(b)) v.items = b;
+    else if (b && typeof b === 'object') Object.assign(v, b);
+    else v.value = b;
+    return v;
+  }
+
+  // example is the WiMark's example as block source: { opts, body } strings.
+  function example(def) {
+    var ex = def.example || {};
+    return {
+      opts: ex.opts && Object.keys(ex.opts).length ? inlineJSON(ex.opts) : '',
+      body: ex.body === undefined ? '' : typeof ex.body === 'string' ? ex.body : json(ex.body)
+    };
+  }
+
+  // source writes a block as Markdown.
+  function source(name, opts, body) {
+    return '```wimark-' + name + (opts ? ' ' + opts : '') + '\n' + (body ? body + '\n' : '') + '```';
+  }
+
+  // mount builds WiMark name inside host from the fence options and the body
+  // (strings, as written in the page); an empty block shows the example.
+  function mount(host, name, opts, body) {
     var def = registry[name];
     host.textContent = '';
     host.className = 'widget wm wm-w-' + name;
-    if (!def) { host.textContent = '// widget-' + name + ': unknown widget'; return false; }
-    payload = payload && typeof payload === 'object' ? payload : {};
-    var data = payload.data === undefined ? (payload.config ? {} : payload) : payload.data;
-    var config = Object.assign({}, def.defaults || {}, payload.config || {});
+    if (!def) { host.appendChild(h('div', 'wm-error', '// wimark-' + name + ': unknown WiMark')); return false; }
     try {
-      def.mount(host, data === undefined ? {} : data, config);
+      if (!String(opts || '').trim() && !String(body || '').trim()) {
+        var ex = example(def);
+        opts = ex.opts;
+        body = ex.body;
+      }
+      def.mount(host, values(def, opts, body));
       return true;
     } catch (err) {
       host.textContent = '';
-      host.appendChild(h('div', 'wm-error', '// widget-' + name + ' error: ' + err.message));
+      host.appendChild(h('div', 'wm-error', '// wimark-' + name + ': ' + err.message));
       if (global.console) console.error('[wimark] ' + name + ':', err);
       return false;
     }
   }
 
-  // Legacy helpers kept for site widgets written against `Widgets`.
-  function colors() {
-    return { ink: token('ink'), gray: token('gray'), graySoft: token('gray-soft'), surface: token('surface'),
-      bgAlt: token('bg-alt'), line: token('line'), lineDash: token('line-dash') };
-  }
-  function clampPct(value, target) {
-    if (!target) return 100;
-    var pct = (Number(value) / Number(target)) * 100;
-    return isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
-  }
-
   var WiMark = {
-    register: register, mount: mount,
+    register: register, mount: mount, values: values, example: example, source: source, json: json, inlineJSON: inlineJSON,
     get: function (name) { return registry[name] || null; },
     names: function () { return Object.keys(registry); },
-    t: t, h: h, svg: svg, inline: inline, paras: paras, url: url, asset: asset, uid: uid,
-    list: list, tabular: tabular, cell: cell, seriesData: seriesData, num: num, fmt: fmt, compact: compact, date: date, fmtDate: fmtDate, extent: extent, sum: sum,
+    t: t, h: h, svg: svg, tex: tex, inline: inline, paras: paras, prose: prose, url: url, asset: asset, uid: uid,
+    list: list, rows: rows, lines: lines, sections: sections, tabular: tabular, cell: cell, seriesData: seriesData, num: num, fmt: fmt, compact: compact, date: date, fmtDate: fmtDate, extent: extent, sum: sum,
     series: series, state: state, icon: icon, token: token, font: font, textures: textures,
     store: store, copy: copy,
     ticks: ticks, scale: { linear: linear, band: band },
-    chart: chart, parts: parts, legend: legend, table: table, dataTable: dataTable, highlight: highlight, codeBlock: codeBlock,
-    math: { compile: compile }, load: load, typeset: typeset,
-    diagram: { textWidth: textWidth, layers: layers, box: box, link: link, label: label },
-    // legacy
-    dom: { h: h }, colors: colors, clampPct: clampPct
+    chart: chart, parts: parts, legend: legend, table: table, grid: grid, parseCSV: parseCSV, aligns: aligns, dataTable: dataTable, highlight: highlight, codeBlock: codeBlock,
+    plotPath: plotPath, math: { compile: compile, value: value }, load: load, typeset: typeset,
+    diagram: { textWidth: textWidth, layers: layers, box: box, link: link, label: label }
   };
 
   global.WiMark = WiMark;
-  global.Widgets = WiMark;
 })(window);

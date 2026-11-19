@@ -10,39 +10,11 @@ import (
 	"strings"
 )
 
-// WiMarkClasses are the classes of the engine widgets, one folder each in
-// static/widgets/. Site widgets get the class of their top folder when it is
-// one of these, "site" otherwise.
-var WiMarkClasses = []string{"general", "markdown", "developer", "data"}
-
-var wiMarkTitles = map[string]string{
-	"general": "General", "markdown": "Markdown replacements", "developer": "Developer", "data": "Data", "site": "Site widgets",
-}
-
-// Class is the widget's WiMark class.
-func (w Widget) Class() string {
-	top, _, _ := strings.Cut(w.Folder(), "/")
-	if slices.Contains(WiMarkClasses, top) {
-		return top
-	}
-	if w.Site {
-		return "site"
-	}
-	return "other"
-}
-
-// CatalogWidget and CatalogClass describe the catalog page to its script.
+// CatalogWidget describes one WiMark to the catalog script.
 type CatalogWidget struct {
-	Name  string `json:"name"`
-	Class string `json:"class"`
-	Path  string `json:"path"`
-	Site  bool   `json:"site"`
-}
-
-type CatalogClass struct {
-	Name    string          `json:"name"`
-	Title   string          `json:"title"`
-	Widgets []CatalogWidget `json:"widgets"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Site bool   `json:"site"`
 }
 
 type catalogTheme struct {
@@ -60,35 +32,24 @@ type catalogContext struct {
 	Version   string
 	Scripts   []string
 	Data      struct {
-		Theme   string         `json:"theme"`
-		Themes  []catalogTheme `json:"themes"`
-		Classes []CatalogClass `json:"classes"`
-		Lang    string         `json:"lang"`
+		Theme   string          `json:"theme"`
+		Themes  []catalogTheme  `json:"themes"`
+		Widgets []CatalogWidget `json:"widgets"`
+		Lang    string          `json:"lang"`
 	}
 }
 
-// CatalogClasses groups the widgets by class, in class order.
-func (s *Site) CatalogClasses() ([]CatalogClass, error) {
+// CatalogWidgets lists every WiMark, engine and site, in one list by name.
+func (s *Site) CatalogWidgets() ([]CatalogWidget, error) {
 	ws, err := s.Widgets()
 	if err != nil {
 		return nil, err
 	}
-	var out []CatalogClass
-	for _, class := range append(slices.Clone(WiMarkClasses), "site", "other") {
-		c := CatalogClass{Name: class, Title: wiMarkTitles[class]}
-		for _, w := range ws {
-			if w.Class() == class {
-				c.Widgets = append(c.Widgets, CatalogWidget{w.Name, class, w.Path, w.Site})
-			}
-		}
-		if len(c.Widgets) > 0 {
-			if c.Title == "" {
-				c.Title = class
-			}
-			slices.SortFunc(c.Widgets, func(a, b CatalogWidget) int { return strings.Compare(a.Name, b.Name) })
-			out = append(out, c)
-		}
+	out := make([]CatalogWidget, 0, len(ws))
+	for _, w := range ws {
+		out = append(out, CatalogWidget{w.Name, w.Path, w.Site})
 	}
+	slices.SortFunc(out, func(a, b CatalogWidget) int { return strings.Compare(a.Name, b.Name) })
 	return out, nil
 }
 
@@ -100,7 +61,7 @@ func (s *Site) Catalog() ([]byte, error) {
 		s = &Site{Config: defaultConfig()}
 		s.Config.normalize()
 	}
-	classes, err := s.CatalogClasses()
+	widgets, err := s.CatalogWidgets()
 	if err != nil {
 		return nil, err
 	}
@@ -111,14 +72,12 @@ func (s *Site) Catalog() ([]byte, error) {
 	cfg := s.Config
 	ctx := catalogContext{Site: cfg.Site, Lang: cfg.DefaultLang(), Style: cfg.Style,
 		StyleVars: styleVars(cfg.Style), FontsURL: fontsURL(cfg.Style), Version: Version}
-	ctx.Data.Theme, ctx.Data.Classes, ctx.Data.Lang = cfg.Site.Theme, classes, cfg.DefaultLang()
+	ctx.Data.Theme, ctx.Data.Widgets, ctx.Data.Lang = cfg.Site.Theme, widgets, cfg.DefaultLang()
 	for _, t := range Themes() {
 		ctx.Data.Themes = append(ctx.Data.Themes, catalogTheme{t, ThemeClass(t)})
 	}
-	for _, c := range classes {
-		for _, w := range c.Widgets {
-			ctx.Scripts = append(ctx.Scripts, w.Path)
-		}
+	for _, w := range widgets {
+		ctx.Scripts = append(ctx.Scripts, w.Path)
 	}
 	var b bytes.Buffer
 	err = tmpl.Execute(&b, ctx)

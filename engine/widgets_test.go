@@ -4,38 +4,65 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 )
 
+// minWiMarks is the size of the engine's WiMark list.
+const minWiMarks = 120
+
+// The engine WiMarks are one flat list, static/widgets/<name>.js, and each
+// follows the rules.
 func TestEngineWidgets(t *testing.T) {
 	Assets = os.DirFS("..")
-	perClass := map[string]int{}
+	n := 0
 	err := fs.WalkDir(Assets, "static/widgets", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || filepath.Ext(p) != ".js" {
 			return err
+		}
+		if path.Dir(p) != "static/widgets" {
+			t.Errorf("%s: engine WiMarks live directly in static/widgets", p)
 		}
 		b, err := fs.ReadFile(Assets, p)
 		if err != nil {
 			return err
 		}
+		n++
 		src, name := string(b), strings.TrimSuffix(filepath.Base(p), ".js")
-		class := strings.Split(strings.TrimPrefix(p, "static/widgets/"), "/")[0]
-		perClass[class]++
 		for _, problem := range CheckWidgetSource(name, src) {
 			t.Errorf("%s: %s", p, problem)
+		}
+		if !strings.Contains(src, "example:") {
+			t.Errorf("%s: no example (an empty block shows it)", p)
 		}
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range WiMarkClasses {
-		if perClass[c] != 25 {
-			t.Errorf("class %s has %d widgets, want 25", c, perClass[c])
+	if n < minWiMarks {
+		t.Errorf("%d engine WiMarks, want at least %d", n, minWiMarks)
+	}
+}
+
+// A WiMark fence keeps its name and inline options for engine.js.
+func TestWiMarkFence(t *testing.T) {
+	src := "```wimark-callout {\"kind\": \"tip\", \"title\": \"<b>\"}\nBody & more\n```\n\n```go\nx := 1\n```\n"
+	body, _, _ := renderMarkdown([]byte(src))
+	html := string(body)
+	for _, want := range []string{
+		`<code class="nohighlight" data-wimark="callout" data-opts="{&#34;kind&#34;: &#34;tip&#34;, &#34;title&#34;: &#34;&lt;b&gt;&#34;}">Body &amp; more`,
+		`<pre><code class="language-go">x := 1`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("missing %s in\n%s", want, html)
 		}
+	}
+	if got := detectWidgets([]byte(src)); len(got) != 1 || got[0] != "callout" {
+		t.Errorf("detectWidgets = %v", got)
 	}
 }
 
@@ -59,7 +86,7 @@ func TestWidgetSyntax(t *testing.T) {
 	if err != nil {
 		t.Skip("node not installed")
 	}
-	files, _ := filepath.Glob("../static/widgets/*/*.js")
+	files, _ := filepath.Glob("../static/widgets/*.js")
 	files = append(files, "../static/widgets.js", "../static/engine.js", "../static/catalog.js", "../static/ui.js")
 	for _, f := range files {
 		if out, err := exec.Command(node, "--check", f).CombinedOutput(); err != nil {

@@ -60,12 +60,14 @@ check` verifies each theme's palette against its class. See [docs/THEMES.md](doc
 
 ## WiMark
 
-A ` ```widget-<name> ` block holding `{ "data": …, "config": … }` becomes a
-widget: 100 of them, 25 per class (general, Markdown replacements, developer,
-data), plus the site's own. An empty block shows the widget's example.
+A ` ```wimark-<name> {"inline": "options"} ` block becomes a widget: 123 of them
+for technical writing — theorems and proofs, equations and derivations, plots,
+K-maps, data structures, API references, diagrams from plain lines, registers,
+benchmarks — in one list, plus the site's own. The body is short JSON (tuples
+like `["build", "passing", "ok"]`) or plain text. An empty block shows the example.
 
 ```sh
-gomark widget preview              # catalog: every widget live, an editor, a theme switch
+gomark widget preview              # catalog: every WiMark live, its source, a theme switch
 gomark widget new charts/gauge     # → <site>/widgets/charts/gauge.js
 ```
 
@@ -89,3 +91,7 @@ HTML, widget rules) and written only by `apply`. See [docs/AI.md](docs/AI.md).
 - [CLI](docs/CLI.md) — every command
 - [Architecture](docs/ARCHITECTURE.md) — how the engine works
 - [Themes](docs/THEMES.md) · [WiMark](docs/WIMARK.md) · [AI](docs/AI.md)
+
+## License
+
+[MIT](LICENSE)

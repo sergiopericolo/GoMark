@@ -62,7 +62,6 @@ var commands = []command{
 	{"section", "[add <id> [title] [depth] | rm <id>]", "list, add or remove sections", cmdSection},
 	{"lang", "[add <code> [label] | rm <code>]", "list, add or remove languages", cmdLang},
 	{"theme", "[name | check]", "list themes with their class, set one, or check them all", cmdTheme},
-	{"image", "<in> <out> [theme]", "compress an image; with a theme, map it to the theme's palette", cmdImage},
 	{"ai", "<translate|convert|widget|list|show|apply|discard> …", "AI proposals, checked, applied only on request", cmdAI},
 	{"widget", "[new <name> | catalog | preview]", "list WiMarks, create one in the site, write or serve the catalog", cmdWidget},
 }
@@ -75,7 +74,6 @@ const flagsHelp = `Flags (anywhere on the line):
   -build         serve: build first
   -delete        section rm: delete the folders too
   -force         init: rewrite an existing gomark.toml; ai apply: replace a file
-  -width <px>    image: maximum width (smaller images are not enlarged)
   -from <code>   ai translate: source language (default: the site's first)
   -m <msg>       publish: commit message
 `
