@@ -25,7 +25,8 @@ type Meta struct {
 	Title       string `toml:"title"`
 	Author      string `toml:"author"`
 	Theme       string `toml:"theme"`
-	Out         string `toml:"out"` // output dir, relative to the site
+	Out         string `toml:"out"`        // output dir, relative to the site
+	GoMarkURL   string `toml:"gomark_url"` // link on "GoMark" in the top bar; "" = no link
 	Description string `toml:"-"`
 }
 
@@ -40,7 +41,8 @@ type Language struct {
 type Style struct {
 	FontMono     string `toml:"font_mono"`
 	FontSans     string `toml:"font_sans"`
-	BodyFont     string `toml:"body_font"` // "mono" | "sans"
+	BodyFont     string `toml:"body_font"`    // "mono" | "sans"
+	HeadingFont  string `toml:"heading_font"` // "mono" | "sans"
 	FontSize     int    `toml:"font_size"`
 	ContentWidth int    `toml:"content_width"`
 	SidebarWidth int    `toml:"sidebar_width"`
@@ -57,11 +59,12 @@ type Nav struct {
 	StatusBar   bool `toml:"status_bar"`
 }
 
-// AIConfig is [ai]. Secrets and programs never come from the site: the API
-// key is ANTHROPIC_API_KEY, the local command GOMARK_AI_COMMAND.
+// AIConfig is [ai]. Secrets, endpoints and programs never come from the
+// site: keys are ANTHROPIC_API_KEY, DEEPSEEK_API_KEY or OPENAI_API_KEY, the
+// local command GOMARK_AI_COMMAND.
 type AIConfig struct {
-	Provider   string `toml:"provider"`     // "anthropic" | "command"
-	Model      string `toml:"model"`        // anthropic model id
+	Provider   string `toml:"provider"`     // "anthropic" | "deepseek" | "openai" | "command"
+	Model      string `toml:"model"`        // model id for the API providers
 	Effort     string `toml:"effort"`       // low | medium | high | xhigh | max
 	MaxInputKB int    `toml:"max_input_kb"` // largest input file sent
 }
@@ -119,9 +122,9 @@ func defaultConfig() *Config {
 	return &Config{
 		Site: Meta{Title: "Site", Theme: "light", Out: "dist"},
 		Style: Style{
-			FontMono: "JetBrains Mono", FontSans: "IBM Plex Sans", BodyFont: "mono",
+			FontMono: "JetBrains Mono", FontSans: "IBM Plex Sans", BodyFont: "sans", HeadingFont: "mono",
 			FontSize: 14, ContentWidth: 780, SidebarWidth: 256, FoldersWidth: 224, TocWidth: 232,
-			Radius: 4, CodeTheme: "auto",
+			Radius: 0, CodeTheme: "auto",
 		},
 		Navigation: Nav{ShowToC: true, StatusBar: true},
 		AI:         AIConfig{Provider: "anthropic", Model: "claude-opus-5-5", Effort: "high", MaxInputKB: 10240},
@@ -140,6 +143,9 @@ func (c *Config) normalize() {
 	or(&c.Site.Theme, def.Site.Theme)
 	or(&c.Site.Out, def.Site.Out)
 	or(&c.AI.Provider, def.AI.Provider)
+	if c.AI.Provider == "deepseek" {
+		or(&c.AI.Model, "deepseek-v4-pro")
+	}
 	or(&c.AI.Model, def.AI.Model)
 	or(&c.AI.Effort, def.AI.Effort)
 	if c.AI.MaxInputKB <= 0 {
@@ -183,6 +189,9 @@ func (s *Style) normalize() {
 	or(&s.FontSans, def.FontSans)
 	if s.BodyFont != "sans" {
 		s.BodyFont = "mono"
+	}
+	if s.HeadingFont != "sans" {
+		s.HeadingFont = "mono"
 	}
 	clamp := func(v *int, lo, hi, d int) {
 		if *v == 0 {
@@ -267,8 +276,6 @@ func (c *Config) SectionsFor(lang string) []Section {
 	return out
 }
 
-// ─── TOML output ────────────────────────────────────────────────────────────
-
 // quote writes a TOML basic string (JSON escaping is a valid subset).
 func quote(s string) string {
 	b, _ := json.Marshal(s)
@@ -302,20 +309,18 @@ var configTmpl = template.Must(template.New("toml").Funcs(template.FuncMap{
 	"q":     quote,
 	"title": titleTOML,
 	"kv":    func(k string, v any, note string) string { return fmt.Sprintf("%-13s = %-18v # %s", k, v, note) },
-}).Parse(`# ─────────────────────────────────────────────────────────────────────────────
-#  GoMark — site configuration
-#  Edit by hand or with: gomark config <key> <value>
-#  Build with:           gomark build [-lang <code>]
-# ─────────────────────────────────────────────────────────────────────────────
+}).Parse(`# GoMark site configuration.
+# Edit by hand or with: gomark config <key> <value>
 
 [site]
 title         = {{q .Site.Title}}
 author        = {{q .Site.Author}}
-{{kv "theme" (q .Site.Theme) "theme in static/themes/: light | dark | blueprint"}}
+{{kv "theme" (q .Site.Theme) "light | dark | duo | duo-dark"}}
 {{kv "out" (q .Site.Out) "output directory, relative to this site"}}
+{{kv "gomark_url" (q .Site.GoMarkURL) "link on \"GoMark\" in the top bar; \"\" = no link"}}
 
-# ─── Languages ───────────────────────────────────────────────────────────────
-# The FIRST language is the default one (used by "gomark build" without -lang).
+# Languages
+# The first language is the default one (used by "gomark build" without -lang).
 # One folder per language: it/<section>/…, en/<section>/…
 # The same path in two folders is the same page. A page missing in the built
 # language is copied from another language with a notice.
@@ -325,11 +330,12 @@ code        = {{q .Code}}
 label       = {{q .Label}}
 description = {{q .Description}}
 {{end}}
-# ─── Style ───────────────────────────────────────────────────────────────────
+# Style
 [style]
 {{with .Style}}{{kv "font_mono" (q .FontMono) "monospace font (Google Fonts)"}}
 {{kv "font_sans" (q .FontSans) "sans-serif font (Google Fonts)"}}
 {{kv "body_font" (q .BodyFont) "page text: \"mono\" | \"sans\""}}
+{{kv "heading_font" (q .HeadingFont) "page titles and headings: \"mono\" | \"sans\""}}
 {{kv "font_size" .FontSize "base size in px"}}
 {{kv "content_width" .ContentWidth "max content width in px"}}
 {{kv "sidebar_width" .SidebarWidth "files column in px"}}
@@ -338,27 +344,29 @@ description = {{q .Description}}
 {{kv "radius" .Radius "corner radius in px (0 = square)"}}
 {{kv "code_theme" (q .CodeTheme) "code blocks: \"auto\" (follows the theme) | \"light\" | \"dark\""}}{{end}}
 
-# ─── Navigation ──────────────────────────────────────────────────────────────
+# Navigation
 [navigation]
 {{with .Navigation}}{{kv "folders_open" .FoldersOpen "true = all folders open; false = current branch only"}}
 {{kv "show_toc" .ShowToC "\"On this page\" column"}}
 {{kv "status_bar" .StatusBar "bottom status bar"}}{{end}}
 
-# ─── AI (gomark ai) ──────────────────────────────────────────────────────────
-# Proposals only: nothing is written until "gomark ai apply". The API key is
-# read from ANTHROPIC_API_KEY; the command provider runs GOMARK_AI_COMMAND.
+# AI (gomark ai)
+# Proposals only: nothing is written until "gomark ai apply". Keys come from
+# the environment only: ANTHROPIC_API_KEY, DEEPSEEK_API_KEY or OPENAI_API_KEY
+# (with GOMARK_AI_ENDPOINT for another compatible API); the command provider
+# runs GOMARK_AI_COMMAND (e.g. "claude -p").
 [ai]
-{{with .AI}}{{kv "provider" (q .Provider) "\"anthropic\" | \"command\""}}
-{{kv "model" (q .Model) "model for the anthropic provider"}}
+{{with .AI}}{{kv "provider" (q .Provider) "\"anthropic\" | \"deepseek\" | \"openai\" | \"command\""}}
+{{kv "model" (q .Model) "model for the API providers"}}
 {{kv "effort" (q .Effort) "low | medium | high | xhigh | max"}}
 {{kv "max_input_kb" .MaxInputKB "largest file sent to the AI"}}{{end}}
 {{if .Strings}}
-# ─── Interface strings (overrides) ───────────────────────────────────────────
+# Interface strings (overrides)
 {{range $l, $m := .Strings}}[strings.{{$l}}]
 {{range $k, $v := $m}}{{$k}} = {{q $v}}
 {{end}}
 {{end}}{{end}}
-# ─── Sections ────────────────────────────────────────────────────────────────
+# Sections
 # id        = folder inside each <lang>/ folder
 # title     = a single string or { it = "…", en = "…" }
 # max_depth = 1 → flat section (3 columns); > 1 → nested folders (4 columns)

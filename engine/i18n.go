@@ -12,6 +12,8 @@ var strs = map[string]map[string]string{
 		"skip_content": "Vai al contenuto", "empty_section": "Nessuna pagina in questa cartella.",
 		"wm_data": "dati", "wm_search": "cerca", "wm_no_data": "nessun dato", "wm_other": "altro", "wm_total": "totale",
 		"wm_show": "mostra", "wm_hide": "nascondi", "wm_reset": "ripristina", "wm_all": "tutti",
+		"search": "Cerca", "search_none": "Nessun risultato", "search_move": "scorri",
+		"search_go": "apri", "search_close": "chiudi",
 	},
 	"en": {
 		"docs": "Documentation", "folders": "Folders", "pages": "Pages", "files": "Files",
@@ -23,6 +25,8 @@ var strs = map[string]map[string]string{
 		"skip_content": "Skip to content", "empty_section": "No pages in this folder.",
 		"wm_data": "data", "wm_search": "search", "wm_no_data": "no data", "wm_other": "other", "wm_total": "total",
 		"wm_show": "show", "wm_hide": "hide", "wm_reset": "reset", "wm_all": "all",
+		"search": "Search", "search_none": "No results", "search_move": "move",
+		"search_go": "open", "search_close": "close",
 	},
 }
 

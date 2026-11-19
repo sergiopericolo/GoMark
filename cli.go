@@ -28,7 +28,7 @@ func (u usageError) Error() string { return string(u) }
 type ctx struct {
 	args                       []string
 	site, lang, out, addr, msg string
-	from                       string
+	from, like                 string
 	build, del, force          bool
 }
 
@@ -40,6 +40,7 @@ func parse(c command, args []string) (*ctx, error) {
 	fs.StringVar(&cx.site, "site", "", "")
 	fs.StringVar(&cx.lang, "lang", "", "")
 	fs.StringVar(&cx.from, "from", "", "")
+	fs.StringVar(&cx.like, "like", "", "")
 	fs.StringVar(&cx.out, "out", "", "")
 	fs.StringVar(&cx.addr, "addr", ":8080", "")
 	fs.StringVar(&cx.msg, "m", "update", "")
@@ -76,6 +77,17 @@ func (cx *ctx) arg(i int) string {
 	return ""
 }
 
+// likes splits -like "a, b" into names.
+func (cx *ctx) likes() []string {
+	var out []string
+	for _, n := range strings.Split(cx.like, ",") {
+		if n = strings.TrimSpace(n); n != "" {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
 // open loads -site, or the nearest site upwards.
 func (cx *ctx) open() (*engine.Site, error) {
 	dir := cx.site
@@ -109,8 +121,6 @@ func warnSkipped(skipped []string) {
 		fmt.Fprintln(os.Stderr, "warning: beyond max_depth, ignored:", p)
 	}
 }
-
-// ─── Site ───────────────────────────────────────────────────────────────────
 
 func cmdInit(cx *ctx) error {
 	if err := cx.arity(0, 2); err != nil {
@@ -223,8 +233,6 @@ func cmdPublish(cx *ctx) error {
 	return err
 }
 
-// ─── Content ────────────────────────────────────────────────────────────────
-
 func cmdTree(cx *ctx) error {
 	if err := cx.arity(0, 0); err != nil {
 		return err
@@ -336,8 +344,6 @@ func cmdRemove(cx *ctx) error {
 	return err
 }
 
-// ─── Settings ───────────────────────────────────────────────────────────────
-
 func cmdConfig(cx *ctx) error {
 	if err := cx.arity(0, 2); err != nil {
 		return err
@@ -412,7 +418,11 @@ func cmdSection(cx *ctx) error {
 		if err := s.RemoveSection(cx.arg(1), cx.del); err != nil {
 			return err
 		}
-		fmt.Printf("removed section %s (folders %s)\n", cx.arg(1), map[bool]string{true: "deleted", false: "kept"}[cx.del])
+		if cx.del {
+			fmt.Printf("removed section %s and its folders\n", cx.arg(1))
+		} else {
+			fmt.Printf("removed section %s (folders kept)\n", cx.arg(1))
+		}
 	default:
 		return usageError("unknown subcommand " + strconv.Quote(cx.arg(0)))
 	}
@@ -427,7 +437,11 @@ func cmdLang(cx *ctx) error {
 	switch cx.arg(0) {
 	case "":
 		for i, l := range s.Config.Languages {
-			fmt.Printf("%-6s %-14s %s\n", l.Code, l.Label, map[bool]string{true: "(default)"}[i == 0])
+			def := ""
+			if i == 0 {
+				def = "(default)"
+			}
+			fmt.Printf("%-6s %-14s %s\n", l.Code, l.Label, def)
 		}
 		return nil
 	case "add":
@@ -463,7 +477,11 @@ func cmdTheme(cx *ctx) error {
 	switch name := cx.arg(0); name {
 	case "":
 		for _, t := range engine.Themes() {
-			fmt.Printf("%s %-16s %s\n", map[bool]string{true: "*", false: " "}[t == s.Config.Site.Theme], t, engine.ThemeClass(t))
+			mark := " "
+			if t == s.Config.Site.Theme {
+				mark = "*"
+			}
+			fmt.Printf("%s %-16s %s\n", mark, t, engine.ThemeClass(t))
 		}
 	case "check":
 		bad := 0
@@ -474,7 +492,8 @@ func cmdTheme(cx *ctx) error {
 			}
 			status := "ok"
 			if len(info.Problems) > 0 {
-				status, bad = strings.Join(info.Problems, "; "), bad+1
+				status = strings.Join(info.Problems, "; ")
+				bad++
 			}
 			fmt.Printf("%-16s %-11s %d hue families, %2d colors  %s\n", t, info.Class, info.Families, info.Colors, status)
 		}
@@ -498,17 +517,17 @@ func size(n int64) string {
 }
 
 func cmdWidget(cx *ctx) error {
-	s, _ := cx.open() // outside a site: engine widgets only, default look
+	s, _ := cx.open() // outside a site: no widgets, default look
 	switch cx.arg(0) {
 	case "":
 		ws, err := s.Widgets()
 		slices.SortFunc(ws, func(a, b engine.Widget) int { return strings.Compare(a.Name, b.Name) })
 		for _, w := range ws {
-			site := ""
-			if w.Site {
-				site = " (site)"
-			}
-			fmt.Printf("  %-14s %s%s\n", w.Name, w.Summary(), site)
+			fmt.Printf("  %-14s %s\n", w.Name, w.Summary())
+		}
+		if len(ws) == 0 && err == nil {
+			fmt.Println("no WiMarks yet: create one with gomark widget new <name> or gomark ai widget <name> \"<description>\"")
+			return nil
 		}
 		fmt.Printf("%d WiMarks: use them as ```wimark-<name> {options} blocks\n", len(ws))
 		return err
@@ -523,6 +542,72 @@ func cmdWidget(cx *ctx) error {
 		if err == nil {
 			name := path.Base(strings.TrimSuffix(file, ".js"))
 			fmt.Printf("created %s\nuse it with a ```wimark-%s block; see it in: gomark widget preview\n", file, name)
+		}
+		return err
+	case "check":
+		if s == nil {
+			return fmt.Errorf("widget check needs a site (run it inside one, or use -site)")
+		}
+		files := cx.args[1:]
+		if len(files) == 0 {
+			ws, err := s.Widgets()
+			if err != nil {
+				return err
+			}
+			for _, w := range ws {
+				files = append(files, filepath.Join(s.Dir, filepath.FromSlash(w.Path))) // w.Path is widgets/…
+			}
+		}
+		if len(files) == 0 {
+			fmt.Println("no WiMarks to check")
+			return nil
+		}
+		bad := 0
+		for _, f := range files {
+			problems, notes, err := s.CheckWidgetFile(context.Background(), f)
+			if err != nil {
+				return err
+			}
+			if len(problems) == 0 {
+				fmt.Println("ok  ", rel(f))
+			} else {
+				bad++
+				fmt.Println("fail", rel(f))
+			}
+			for _, p := range problems {
+				fmt.Println("  ✕", p)
+			}
+			for _, n := range notes {
+				fmt.Println("  !", n)
+			}
+		}
+		if bad > 0 {
+			return fmt.Errorf("%d widget(s) break the rules", bad)
+		}
+		return nil
+	case "context":
+		if err := cx.arity(3, 3); err != nil {
+			return err
+		}
+		if s == nil {
+			return fmt.Errorf("widget context needs a site (run it inside one, or use -site)")
+		}
+		brief, err := s.WidgetContext(path.Base(strings.TrimSuffix(cx.arg(1), ".js")), cx.arg(2), cx.likes())
+		if err != nil {
+			return err
+		}
+		fmt.Printf("# WiMark brief: %s\n\nWhat it shows: %s\n\n%s\n", cx.arg(1), cx.arg(2), brief)
+		return nil
+	case "skill":
+		if err := cx.arity(1, 1); err != nil {
+			return err
+		}
+		if s == nil {
+			return fmt.Errorf("widget skill needs a site (run it inside one, or use -site)")
+		}
+		file, err := s.WriteWidgetSkill(cx.force)
+		if err == nil {
+			fmt.Printf("created %s\nClaude Code now uses it when you ask for a widget in this site\n", file)
 		}
 		return err
 	case "catalog":
@@ -565,8 +650,6 @@ func cmdWidget(cx *ctx) error {
 	return usageError("unknown subcommand " + strconv.Quote(cx.arg(0)))
 }
 
-// ─── AI ─────────────────────────────────────────────────────────────────────
-
 func cmdAI(cx *ctx) error {
 	s, err := cx.open()
 	if err != nil {
@@ -600,7 +683,7 @@ func cmdAI(cx *ctx) error {
 			return err
 		}
 		announce("write the widget " + cx.arg(1))
-		p, err = s.AIWidget(ctx, cx.arg(1), cx.arg(2))
+		p, err = s.AIWidget(ctx, cx.arg(1), cx.arg(2), cx.likes())
 	case "list", "":
 		ps, err := s.Proposals()
 		for _, p := range ps {

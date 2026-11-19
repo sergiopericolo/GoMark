@@ -26,55 +26,63 @@ func Themes() []string {
 	return names
 }
 
-// Widget is a widget script, named after its file. Folders are ignored.
+// Widget is a site widget script, named after its file. Folders are ignored.
 type Widget struct {
 	Name string // used by ```wimark-<name> fences
 	Path string // in the output, relative to static/: widgets/<folders>/<name>.js
-	Site bool   // from <site>/widgets rather than the engine
 
 	fsys fs.FS
 	file string
 }
 
-// Widgets lists engine widgets and <site>/widgets; site wins on equal names.
-// s may be nil.
+// Widgets lists <site>/widgets: the engine ships the runtime, not widgets.
+// s may be nil (no widgets).
 func (s *Site) Widgets() ([]Widget, error) {
-	byName := map[string]Widget{}
-	var order []string
-	add := func(fsys fs.FS, root string, site bool) error {
-		seen := map[string]string{}
-		return fs.WalkDir(fsys, root, func(p string, d fs.DirEntry, err error) error {
-			if p == root && errors.Is(err, fs.ErrNotExist) {
-				return fs.SkipAll
-			}
-			if err != nil || d.IsDir() || path.Ext(p) != ".js" {
-				return err
-			}
-			name := strings.TrimSuffix(d.Name(), ".js")
-			if seen[name] != "" {
-				return fmt.Errorf("widget %q is defined twice: %s and %s", name, seen[name], p)
-			}
-			seen[name] = p
-			if _, ok := byName[name]; !ok {
-				order = append(order, name)
-			}
-			byName[name] = Widget{name, "widgets/" + strings.TrimPrefix(p, root+"/"), site, fsys, p}
-			return nil
-		})
+	var out []Widget
+	if s == nil || s.Dir == "" {
+		return out, nil
 	}
-	if err := add(Assets, "static/widgets", false); err != nil {
+	fsys, root := os.DirFS(s.Dir), "widgets"
+	seen := map[string]string{}
+	err := fs.WalkDir(fsys, root, func(p string, d fs.DirEntry, err error) error {
+		if p == root && errors.Is(err, fs.ErrNotExist) {
+			return fs.SkipAll
+		}
+		if err != nil || d.IsDir() || path.Ext(p) != ".js" {
+			return err
+		}
+		name := strings.TrimSuffix(d.Name(), ".js")
+		if seen[name] != "" {
+			return fmt.Errorf("widget %q is defined twice: %s and %s", name, seen[name], p)
+		}
+		seen[name] = p
+		out = append(out, Widget{name, "widgets/" + strings.TrimPrefix(p, root+"/"), fsys, p})
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	if s != nil && s.Dir != "" {
-		if err := add(os.DirFS(s.Dir), "widgets", true); err != nil {
-			return nil, err
-		}
-	}
-	out := make([]Widget, len(order))
-	for i, n := range order {
-		out[i] = byName[n]
-	}
 	return out, nil
+}
+
+// WidgetSkillFile is where WriteWidgetSkill installs the Claude Code skill.
+const WidgetSkillFile = ".claude/skills/gomark-widget/SKILL.md"
+
+// WriteWidgetSkill installs the Claude Code skill for writing widgets in the
+// site, from templates/widget-skill.md. force replaces an existing one.
+func (s *Site) WriteWidgetSkill(force bool) (string, error) {
+	b, err := fs.ReadFile(Assets, "templates/widget-skill.md")
+	if err != nil {
+		return "", err
+	}
+	full := s.path(filepath.FromSlash(WidgetSkillFile))
+	if exists(full) && !force {
+		return "", fmt.Errorf("%s already exists (use -force to replace it)", WidgetSkillFile)
+	}
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		return "", err
+	}
+	return WidgetSkillFile, os.WriteFile(full, b, 0o644)
 }
 
 // NewWidget creates <site>/widgets/<rel>.js (e.g. charts/gauge) from a template.
@@ -138,6 +146,9 @@ func (w Widget) Summary() string {
 	return after
 }
 
+// Source is the widget's script.
+func (w Widget) Source() ([]byte, error) { return fs.ReadFile(w.fsys, w.file) }
+
 // Doc is the widget's leading comment: description and payload.
 func (w Widget) Doc() string {
 	b, _ := fs.ReadFile(w.fsys, w.file)
@@ -159,7 +170,7 @@ func (w Widget) Doc() string {
 func (s *Site) Asset(p string) ([]byte, error) {
 	ws, _ := s.Widgets()
 	for _, w := range ws {
-		if w.Site && "static/"+w.Path == p {
+		if "static/"+w.Path == p {
 			return fs.ReadFile(w.fsys, w.file)
 		}
 	}
@@ -178,9 +189,7 @@ func (s *Site) copyStatic(out string) (int, error) {
 	ws, err := s.Widgets()
 	src := map[string]string{}
 	for _, w := range ws {
-		if w.Site {
-			files["static/"+w.Path], src["static/"+w.Path] = w.fsys, w.file
-		}
+		files["static/"+w.Path], src["static/"+w.Path] = w.fsys, w.file
 	}
 	for p, fsys := range files {
 		b, err := fs.ReadFile(fsys, cmp.Or(src[p], p))

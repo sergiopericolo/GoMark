@@ -63,7 +63,7 @@ var commands = []command{
 	{"lang", "[add <code> [label] | rm <code>]", "list, add or remove languages", cmdLang},
 	{"theme", "[name | check]", "list themes with their class, set one, or check them all", cmdTheme},
 	{"ai", "<translate|convert|widget|list|show|apply|discard> …", "AI proposals, checked, applied only on request", cmdAI},
-	{"widget", "[new <name> | catalog | preview]", "list WiMarks, create one in the site, write or serve the catalog", cmdWidget},
+	{"widget", "[new <name> | check [files] | context <name> <description> | skill | catalog | preview]", "list, create and check WiMarks; brief and skill for Claude Code; the catalog", cmdWidget},
 }
 
 const flagsHelp = `Flags (anywhere on the line):
@@ -73,8 +73,9 @@ const flagsHelp = `Flags (anywhere on the line):
   -addr <addr>   serve / widget preview address (default :8080)
   -build         serve: build first
   -delete        section rm: delete the folders too
-  -force         init: rewrite an existing gomark.toml; ai apply: replace a file
+  -force         init: rewrite an existing gomark.toml; ai apply: replace a file; widget skill: replace it
   -from <code>   ai translate: source language (default: the site's first)
+  -like <a,b>    ai widget, widget context: WiMarks to follow as models (default: the closest)
   -m <msg>       publish: commit message
 `
 

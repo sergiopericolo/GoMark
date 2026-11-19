@@ -182,7 +182,8 @@ func (r *builder) processImage(src string, o ImageOptions) (string, int, int, er
 	var b []byte
 	for _, ext := range []string{".png", ".jpg"} {
 		if c, err := os.ReadFile(r.site.path(cacheDir, stem+ext)); err == nil {
-			name, b = stem+ext, c
+			name = stem + ext
+			b = c
 			break
 		}
 	}

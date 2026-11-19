@@ -1,71 +1,50 @@
 /*
  * class: monochrome
- * GoMark theme — light (default): color1 panels on a color2 frame.
- * Overrides only the :root variables of theme.css.
+ * light — ink on paper. One ink, five grays, no hue.
  */
 :root {
-  --bg:           #CED3DE; /* color1 — background */
-  --bg-alt:       #CED3DE; /* color1 — side columns, status bar */
-  --surface:      #CED3DE; /* color1 — widget cards */
-  --ink:          #1F2125; /* bg     — headings, emphasis */
-  --text:         #2A2D35; /* color5 — paragraph text */
-  --gray:         #4D576A; /* color4 — secondary text */
-  --gray-soft:    #6C7689; /* color3 — meta, ## markers */
-  --line:         #969FB0; /* color2 — borders */
-  --line-dash:    #969FB0; /* color2 */
-  --hover:        #CED3DE; /* color1 */
-  --frame:        #969FB0; /* color2 — frame between panels */
-  --active-bg:    #4D576A; /* color4 — dark boxes (brand, section, active item) */
-  --active-ink:   #FFFFFF; /* white */
-  --active-muted: #CED3DE; /* color1 */
-  --table-head:   #4D576A; /* color4 — table header (a bit lighter than code) */
-  --table-head-ink: #FFFFFF; /* white */
-  --heading:      #4D576A; /* color4 — headings h1…h6 */
-  --top-active:   #2A2D35; /* color5 — top bar box */
-  --file-active:  #6C7689; /* color3 — active file */
-  --toc-bg:       #CED3DE; /* color1 — outline panel (light) */
-  --toc-ink:      #1F2125; /* bg     — H1 */
-  --toc-text:     #2A2D35; /* color5 — H2 */
-  --toc-gray:     #4D576A; /* color4 — H3, header */
-  --toc-soft:     #6C7689; /* color3 */
-  --toc-line:     #969FB0; /* color2 — rail */
-  --toc-active:   #969FB0; /* color2 — active item: light, one step darker */
-  --toc-active-ink: #1F2125; /* bg — text always dark */
-  --toc-active-muted: #2A2D35; /* color5 — secondary text in the active item */
-  --toc-bump:     #4D576A; /* color4 — bump of the active item */
+  --bg:          #F7F7F5;
+  --surface:     #F7F7F5;
+  --hover:       #EEEEEB;
+  --line:        #E1E1DD;
+  --ink:         #0B0B0B;
+  --text:        #262625;
+  --gray:        #5E5E5B;
+  --gray-soft:   #868682;
+  --accent:      #0B0B0B;
+  --on-accent:   #F7F7F5;
+  --accent-soft: #EEEEEB;
 
-  --code-bg:      #2A2D35; /* color5 */
-  --code-head:    #2A2D35; /* color5 — split from the body by a color4 rule */
-  --code-line:    #4D576A; /* color4 */
-  --code-ink:     #CED3DE; /* color1 — identifiers */
-  --code-strong:  #FFFFFF; /* white  — keywords (bold) */
-  --code-title:   #FFFFFF; /* white  — functions */
-  --code-number:  #FFFFFF; /* white  — numbers */
-  --code-type:    #969FB0; /* color2 — types (bold) */
-  --code-string:  #969FB0; /* color2 — strings */
-  --code-punct:   #6C7689; /* color3 — operators */
-  --code-muted:   #6C7689; /* color3 — comments (bold): color4 on color5 would be unreadable */
+  --code-bg:     #EEEEEB;
+  --code-head:   #EEEEEB;
+  --code-line:   #E1E1DD;
+  --code-ink:    #262625;
+  --code-strong: #0B0B0B;
+  --code-title:  #0B0B0B;
+  --code-number: #0B0B0B;
+  --code-type:   #5E5E5B;
+  --code-string: #5E5E5B;
+  --code-punct:  #868682;
+  --code-muted:  #868682;
 
-  /* ─── WiMark — widgets read only these tokens, never their own colors ─── */
-  /* series 1…8: assigned in this order, never cycled; 9+ fold into "other" */
-  --wm-1: #1F2125; --wm-on-1: #FFFFFF; --wm-dash-1: none;
-  --wm-2: #4D576A; --wm-on-2: #FFFFFF; --wm-dash-2: none;
-  --wm-3: #6C7689; --wm-on-3: #FFFFFF; --wm-dash-3: none;
-  --wm-4: #2A2D35; --wm-on-4: #FFFFFF; --wm-dash-4: 7 4;
-  --wm-5: #4D576A; --wm-on-5: #FFFFFF; --wm-dash-5: 7 4;
-  --wm-6: #6C7689; --wm-on-6: #FFFFFF; --wm-dash-6: 7 4;
-  --wm-7: #1F2125; --wm-on-7: #FFFFFF; --wm-dash-7: 2 3;
-  --wm-8: #4D576A; --wm-on-8: #FFFFFF; --wm-dash-8: 2 3;
-  --wm-fill-4: url(#wm-tex-4); --wm-bg-4: repeating-linear-gradient(45deg, var(--wm-4) 0 2px, var(--surface) 2px 6px);
-  --wm-fill-5: url(#wm-tex-5); --wm-bg-5: repeating-linear-gradient(135deg, var(--wm-5) 0 2px, var(--surface) 2px 6px);
-  --wm-fill-6: url(#wm-tex-6); --wm-bg-6: repeating-linear-gradient(45deg, var(--wm-6) 0 2px, var(--surface) 2px 6px);
-  --wm-fill-7: url(#wm-tex-7); --wm-bg-7: repeating-linear-gradient(135deg, var(--wm-7) 0 2px, var(--surface) 2px 6px);
-  --wm-fill-8: url(#wm-tex-8); --wm-bg-8: repeating-linear-gradient(45deg, var(--wm-8) 0 2px, var(--surface) 2px 6px);
-  --wm-accent: #4D576A; --wm-on-accent: #FFFFFF;
-  --wm-pos: #2A2D35; --wm-neg: #1F2125; --wm-warn: #4D576A; --wm-info: #6C7689;  /* always with icon + label */
-  --wm-on-pos: #FFFFFF; --wm-on-neg: #FFFFFF; --wm-on-warn: #FFFFFF; --wm-on-info: #FFFFFF;
-  --wm-pos-soft: #FFFFFF; --wm-neg-soft: #FFFFFF; --wm-warn-soft: #FFFFFF; --wm-info-soft: #FFFFFF;
-  --wm-soft: #FFFFFF; --wm-grid: #969FB0;
-  /* sequential ramp: low → high, one hue */
-  --wm-heat-0: #FFFFFF; --wm-heat-1: #969FB0; --wm-heat-2: #6C7689; --wm-heat-3: #4D576A; --wm-heat-4: #1F2125;
+  /* Widgets: series tell apart by tone, dash and texture, never by hue. */
+  --wm-1: #0B0B0B; --wm-on-1: #F7F7F5; --wm-dash-1: none;
+  --wm-2: #5E5E5B; --wm-on-2: #F7F7F5; --wm-dash-2: none;
+  --wm-3: #A6A6A2; --wm-on-3: #0B0B0B; --wm-dash-3: none;
+  --wm-4: #0B0B0B; --wm-on-4: #F7F7F5; --wm-dash-4: 6 3;
+  --wm-5: #5E5E5B; --wm-on-5: #F7F7F5; --wm-dash-5: 6 3;
+  --wm-6: #A6A6A2; --wm-on-6: #0B0B0B; --wm-dash-6: 6 3;
+  --wm-7: #0B0B0B; --wm-on-7: #F7F7F5; --wm-dash-7: 1 3;
+  --wm-8: #5E5E5B; --wm-on-8: #F7F7F5; --wm-dash-8: 1 3;
+  --wm-fill-4: url(#wm-tex-4); --wm-bg-4: repeating-linear-gradient(45deg, var(--wm-4) 0 1px, var(--surface) 1px 5px);
+  --wm-fill-5: url(#wm-tex-5); --wm-bg-5: repeating-linear-gradient(135deg, var(--wm-5) 0 1px, var(--surface) 1px 5px);
+  --wm-fill-6: url(#wm-tex-6); --wm-bg-6: repeating-linear-gradient(45deg, var(--wm-6) 0 1px, var(--surface) 1px 5px);
+  --wm-fill-7: url(#wm-tex-7); --wm-bg-7: repeating-linear-gradient(135deg, var(--wm-7) 0 1px, var(--surface) 1px 5px);
+  --wm-fill-8: url(#wm-tex-8); --wm-bg-8: repeating-linear-gradient(45deg, var(--wm-8) 0 1px, var(--surface) 1px 5px);
+  --wm-accent: #0B0B0B; --wm-on-accent: #F7F7F5;
+  --wm-pos: #0B0B0B; --wm-neg: #0B0B0B; --wm-warn: #5E5E5B; --wm-info: #868682;
+  --wm-on-pos: #F7F7F5; --wm-on-neg: #F7F7F5; --wm-on-warn: #F7F7F5; --wm-on-info: #F7F7F5;
+  --wm-pos-soft: #EEEEEB; --wm-neg-soft: #EEEEEB; --wm-warn-soft: #EEEEEB; --wm-info-soft: #EEEEEB;
+  --wm-soft: #EEEEEB; --wm-grid: #E1E1DD;
+  --wm-heat-0: #EEEEEB; --wm-heat-1: #CBCBC7; --wm-heat-2: #A6A6A2; --wm-heat-3: #5E5E5B; --wm-heat-4: #0B0B0B;
 }

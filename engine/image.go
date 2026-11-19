@@ -57,11 +57,13 @@ func EncodeImage(raw []byte, o ImageOptions) ([]byte, string, ImageStats, error)
 	changed := false
 	if kind == "jpeg" {
 		if or := exifOrientation(raw); or > 1 && or <= 8 {
-			src, changed = orient(src, or), true
+			src = orient(src, or)
+			changed = true
 		}
 	}
 	if o.MaxWidth > 0 && src.Rect.Dx() > o.MaxWidth {
-		src, changed = shrink(src, o.MaxWidth), true
+		src = shrink(src, o.MaxWidth)
+		changed = true
 	}
 	st.Width, st.Height = src.Rect.Dx(), src.Rect.Dy()
 
@@ -123,7 +125,8 @@ func EncodeImage(raw []byte, o ImageOptions) ([]byte, string, ImageStats, error)
 	// Re-encoding must never cost bytes: an image already in the right format,
 	// with nothing to resize, rotate or map, stays as it was when smaller.
 	if !changed && o.Palette == "" && kind == format && len(raw) <= buf.Len() {
-		st.After, st.Kept = int64(len(raw)), true
+		st.After = int64(len(raw))
+		st.Kept = true
 		return raw, ext, st, nil
 	}
 	st.After = int64(buf.Len())

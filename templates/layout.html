@@ -24,7 +24,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script>hljs.highlightAll();</script>
 </head>
-<body data-depth="{{.DepthMode}}" data-index="{{.Index}}" data-theme="{{.Site.Theme}}" data-theme-class="{{themeClass .Site.Theme}}"{{if ne .Style.CodeTheme "auto"}} data-code="{{.Style.CodeTheme}}"{{end}}{{if eq .Index "none"}} data-toc="off"{{end}}{{if .Nav.StatusBar}} data-statusbar="on"{{end}}>
+<body data-depth="{{.DepthMode}}" data-index="{{.Index}}" data-theme="{{.Site.Theme}}" data-theme-class="{{themeClass .Site.Theme}}" data-heading="{{.Style.HeadingFont}}"{{if ne .Style.CodeTheme "auto"}} data-code="{{.Style.CodeTheme}}"{{end}}{{if eq .Index "none"}} data-toc="off"{{end}}{{if .Nav.StatusBar}} data-statusbar="on"{{end}}>
 
   <header class="topbar">
     <a class="brand" href="{{.RootPrefix}}index.html">{{.Site.Title}}</a>
@@ -37,8 +37,9 @@
       {{end}}
     </nav>
     <div class="topbar-end">
+      <button class="search-open" type="button" data-search-open aria-haspopup="dialog"><span>{{.T "search"}}</span><kbd>⌘K</kbd></button>
       {{if gt (len .Switch) 1}}{{template "langSwitch" .}}{{end}}
-      <span class="build-info">v{{.Version}}</span>
+      <span class="build-info">{{if .Site.GoMarkURL}}<a class="build-name" href="{{.Site.GoMarkURL}}">GoMark</a>{{else}}<span class="build-name">GoMark</span>{{end}} v{{.Version}}</span>
     </div>
   </header>
 
@@ -48,7 +49,6 @@
     <section class="col-content">
       <div class="content-scroll home">
         <div class="home-hero">
-          <div class="home-prompt"><span class="prompt-sign">$</span> cat README.md</div>
           <h1 class="home-title">{{.Site.Title}}</h1>
           {{if .Site.Description}}<p class="home-desc">{{.Site.Description}}</p>{{end}}
         </div>
@@ -176,13 +176,21 @@
   </footer>
   {{end}}
 
+  <div class="search" data-search hidden role="dialog" aria-modal="true" aria-label="{{.T "search"}}">
+    <div class="search-panel">
+      <input class="search-input" type="search" placeholder="{{.T "search"}}" autocomplete="off" spellcheck="false" aria-controls="search-results">
+      <ul class="search-results" id="search-results" role="listbox"></ul>
+      <div class="search-hint" aria-hidden="true"><span><kbd>↑↓</kbd> {{.T "search_move"}}</span><span><kbd>↵</kbd> {{.T "search_go"}}</span><span><kbd>esc</kbd> {{.T "search_close"}}</span></div>
+    </div>
+  </div>
+
   <script>
     window.GOMARK = {
       lang: "{{.Lang}}",
       root: "{{.RootPrefix}}",
       theme: "{{.Site.Theme}}",
       section: "{{if .ActiveSection}}{{.ActiveSection.ID}}{{end}}",
-      i18n: { copy: "{{.T "copy"}}", copied: "{{.T "copied"}}", words: "{{.T "words"}}", minRead: "{{.T "min_read"}}",
+      i18n: { noResults: "{{.T "search_none"}}", copy: "{{.T "copy"}}", copied: "{{.T "copied"}}", words: "{{.T "words"}}", minRead: "{{.T "min_read"}}",
         data: "{{.T "wm_data"}}", search: "{{.T "wm_search"}}", noData: "{{.T "wm_no_data"}}", other: "{{.T "wm_other"}}",
         total: "{{.T "wm_total"}}", show: "{{.T "wm_show"}}", hide: "{{.T "wm_hide"}}", reset: "{{.T "wm_reset"}}", all: "{{.T "wm_all"}}" }
     };
@@ -193,6 +201,7 @@
   {{- end}}
   <script src="{{.RootPrefix}}static/engine.js"></script>
   <script src="{{.RootPrefix}}static/ui.js"></script>
+  <script src="{{.RootPrefix}}static/search.js"></script>
 </body>
 </html>
 

@@ -15,13 +15,12 @@ import (
 // Theme classes. A theme declares one in its header (" * class: <name>") and
 // CheckTheme verifies it against the colors the theme actually uses.
 const (
-	ClassMonochrome = "monochrome" // one hue family (plus neutrals)
-	ClassBicolor    = "bicolor"    // exactly two hue families
-	ClassColored    = "colored"    // three or more hue families
+	ClassMonochrome = "monochrome" // ink on paper: neutrals only
+	ClassBicolor    = "bicolor"    // ink on paper plus one accent hue
 )
 
 // ThemeClasses lists the classes in order.
-var ThemeClasses = []string{ClassMonochrome, ClassBicolor, ClassColored}
+var ThemeClasses = []string{ClassMonochrome, ClassBicolor}
 
 const (
 	neutralChroma = 0.06 // below this a color is a neutral (gray), not a hue
@@ -125,18 +124,14 @@ func CheckTheme(name string) (ThemeInfo, error) {
 	info.Families = hueFamilies(pal)
 	switch info.Class {
 	case "":
-		info.Problems = append(info.Problems, `no class declared (add " * class: monochrome|bicolor|colored" to the header)`)
+		info.Problems = append(info.Problems, `no class declared (add " * class: monochrome|bicolor" to the header)`)
 	case ClassMonochrome:
-		if info.Families > 1 {
-			info.Problems = append(info.Problems, fmt.Sprintf("monochrome but the palette has %d hue families", info.Families))
+		if info.Families != 0 {
+			info.Problems = append(info.Problems, fmt.Sprintf("monochrome but the palette has %d hue families (want neutrals only)", info.Families))
 		}
 	case ClassBicolor:
-		if info.Families != 2 {
-			info.Problems = append(info.Problems, fmt.Sprintf("bicolor but the palette has %d hue families (want 2)", info.Families))
-		}
-	case ClassColored:
-		if info.Families < 3 {
-			info.Problems = append(info.Problems, fmt.Sprintf("colored but the palette has %d hue families (want 3 or more)", info.Families))
+		if info.Families != 1 {
+			info.Problems = append(info.Problems, fmt.Sprintf("bicolor but the palette has %d hue families (want neutrals and one accent)", info.Families))
 		}
 	default:
 		info.Problems = append(info.Problems, fmt.Sprintf("unknown class %q (use %s)", info.Class, strings.Join(ThemeClasses, ", ")))

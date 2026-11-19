@@ -1,0 +1,12 @@
+# Binary
+/gomark
+
+# Site output, cache and AI proposals (for sites kept in this repo)
+dist/
+.gomark/
+wimark-catalog/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/

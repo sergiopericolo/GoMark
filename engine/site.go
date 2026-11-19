@@ -137,8 +137,6 @@ func Find(dir string) (string, error) {
 	return "", err
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
 func exists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil

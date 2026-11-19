@@ -160,7 +160,7 @@ func TestImageWiMarkStaysInsideTheSite(t *testing.T) {
 
 func TestSectionTheme(t *testing.T) {
 	s := testSite(t)
-	if err := s.Set("sections.notes.theme", "spectrum"); err != nil {
+	if err := s.Set("sections.notes.theme", "duo"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.NewPage("", "notes", "x.md", "X"); err != nil {
@@ -170,7 +170,7 @@ func TestSectionTheme(t *testing.T) {
 	if _, err := s.Build("", out); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(read(t, filepath.Join(out, "notes", "x", "index.html")), "themes/spectrum.css") {
+	if !strings.Contains(read(t, filepath.Join(out, "notes", "x", "index.html")), "themes/duo.css") {
 		t.Error("the section page does not use the section theme")
 	}
 	if !strings.Contains(read(t, filepath.Join(out, "index.html")), "themes/light.css") {

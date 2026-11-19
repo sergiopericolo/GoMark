@@ -85,17 +85,17 @@ func TestLayoutValidate(t *testing.T) {
 
 func TestOverrideKeepsGlobalStyle(t *testing.T) {
 	s := testSite(t)
-	if err := os.WriteFile(s.sectionFilePath("notes"), []byte("layout = \"columns\"\nindex = \"left\"\n\n[style]\nbody_font = \"sans\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(s.sectionFilePath("notes"), []byte("layout = \"columns\"\nindex = \"left\"\n\n[style]\nbody_font = \"mono\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.loadLayouts(); err != nil {
 		t.Fatal(err)
 	}
 	sec := s.Config.Section("notes")
-	if sec.Layout.Style.BodyFont != "sans" {
-		t.Errorf("section body_font = %q, want sans", sec.Layout.Style.BodyFont)
+	if sec.Layout.Style.BodyFont != "mono" {
+		t.Errorf("section body_font = %q, want mono", sec.Layout.Style.BodyFont)
 	}
-	if s.Config.Style.BodyFont != "mono" {
+	if s.Config.Style.BodyFont != "sans" {
 		t.Errorf("global body_font changed to %q", s.Config.Style.BodyFont)
 	}
 	if sec.Layout.Style.FontSize != s.Config.Style.FontSize {
@@ -106,7 +106,7 @@ func TestOverrideKeepsGlobalStyle(t *testing.T) {
 func TestSetLayoutRewritesFileAndKeepsOverrides(t *testing.T) {
 	s := testSite(t)
 	file := filepath.Join(s.Dir, "sections", "notes.toml")
-	if err := os.WriteFile(file, []byte("layout = \"columns\"\n\n[style]\nbody_font = \"sans\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(file, []byte("layout = \"columns\"\n\n[style]\nbody_font = \"mono\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.loadLayouts(); err != nil {
@@ -120,7 +120,7 @@ func TestSetLayoutRewritesFileAndKeepsOverrides(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(b)
-	for _, want := range []string{"files = 25", "[style]", "body_font = \"sans\""} {
+	for _, want := range []string{"files = 25", "[style]", "body_font = \"mono\""} {
 		if !strings.Contains(text, want) {
 			t.Errorf("sections/notes.toml lost %q:\n%s", want, text)
 		}

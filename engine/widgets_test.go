@@ -1,50 +1,32 @@
 package engine
 
 import (
+	"context"
 	"io/fs"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 )
 
-// minWiMarks is the size of the engine's WiMark list.
-const minWiMarks = 120
-
-// The engine WiMarks are one flat list, static/widgets/<name>.js, and each
-// follows the rules.
-func TestEngineWidgets(t *testing.T) {
-	Assets = os.DirFS("..")
-	n := 0
-	err := fs.WalkDir(Assets, "static/widgets", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || filepath.Ext(p) != ".js" {
-			return err
-		}
-		if path.Dir(p) != "static/widgets" {
-			t.Errorf("%s: engine WiMarks live directly in static/widgets", p)
-		}
-		b, err := fs.ReadFile(Assets, p)
-		if err != nil {
-			return err
-		}
-		n++
-		src, name := string(b), strings.TrimSuffix(filepath.Base(p), ".js")
-		for _, problem := range CheckWidgetSource(name, src) {
-			t.Errorf("%s: %s", p, problem)
-		}
-		if !strings.Contains(src, "example:") {
-			t.Errorf("%s: no example (an empty block shows it)", p)
-		}
-		return nil
-	})
-	if err != nil {
+// The engine ships the runtime, not widgets: a new site has none, and the
+// ones it creates in <site>/widgets are all it has.
+func TestWidgetsComeOnlyFromTheSite(t *testing.T) {
+	s := testSite(t)
+	if _, err := fs.Stat(Assets, "static/widgets"); err == nil {
+		t.Error("static/widgets exists: the engine ships no WiMarks")
+	}
+	if ws, err := s.Widgets(); err != nil || len(ws) != 0 {
+		t.Fatalf("a new site has WiMarks: %v %v", ws, err)
+	}
+	if _, err := s.NewWidget("charts/gauge"); err != nil {
 		t.Fatal(err)
 	}
-	if n < minWiMarks {
-		t.Errorf("%d engine WiMarks, want at least %d", n, minWiMarks)
+	ws, err := s.Widgets()
+	if err != nil || len(ws) != 1 || ws[0].Name != "gauge" || ws[0].Path != "widgets/charts/gauge.js" {
+		t.Fatalf("Widgets = %v %v", ws, err)
 	}
 }
 
@@ -86,9 +68,7 @@ func TestWidgetSyntax(t *testing.T) {
 	if err != nil {
 		t.Skip("node not installed")
 	}
-	files, _ := filepath.Glob("../static/widgets/*.js")
-	files = append(files, "../static/widgets.js", "../static/engine.js", "../static/catalog.js", "../static/ui.js")
-	for _, f := range files {
+	for _, f := range []string{"../static/widgets.js", "../static/engine.js", "../static/catalog.js", "../static/ui.js"} {
 		if out, err := exec.Command(node, "--check", f).CombinedOutput(); err != nil {
 			t.Errorf("%s: %s", f, out)
 		}
@@ -108,5 +88,37 @@ func TestNewWidgetFollowsTheRules(t *testing.T) {
 	}
 	if problems := CheckWidgetSource("gauge2", string(b)); len(problems) > 0 {
 		t.Errorf("the widget template breaks the rules: %v", problems)
+	}
+}
+
+// widget check reports a broken widget; widget skill installs the skill once.
+func TestCheckWidgetFileAndSkill(t *testing.T) {
+	s := testSite(t)
+	file, err := s.NewWidget("meter")
+	if err != nil {
+		t.Fatal(err)
+	}
+	full := filepath.Join(s.Dir, filepath.FromSlash(file))
+	if problems, _, err := s.CheckWidgetFile(context.Background(), full); err != nil || len(problems) > 0 {
+		t.Fatalf("the template fails the check: %v %v", problems, err)
+	}
+	bad := strings.Replace(read(t, full), "mount: function (el, v) {", "mount: function (el, v) { el.innerHTML = v.value;", 1)
+	os.WriteFile(full, []byte(bad), 0o644)
+	if problems, _, _ := s.CheckWidgetFile(context.Background(), full); len(problems) == 0 {
+		t.Error("innerHTML passed the check")
+	}
+
+	got, err := s.WriteWidgetSkill(false)
+	if err != nil || got != WidgetSkillFile {
+		t.Fatalf("WriteWidgetSkill = %q, %v", got, err)
+	}
+	if !strings.Contains(read(t, filepath.Join(s.Dir, WidgetSkillFile)), "gomark widget context") {
+		t.Error("the skill does not explain the loop")
+	}
+	if _, err := s.WriteWidgetSkill(false); err == nil {
+		t.Error("the skill was replaced without -force")
+	}
+	if _, err := s.WriteWidgetSkill(true); err != nil {
+		t.Error(err)
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -27,17 +26,7 @@ var (
 	linkRe       = regexp.MustCompile(`\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)`)
 	inlineCodeRe = regexp.MustCompile("`([^`\n]+)`")
 	dangerousRe  = regexp.MustCompile(`(?i)<\s*(script|iframe|object|embed|link|meta|style|form|base)\b|\son[a-z]+\s*=|javascript:|vbscript:|data:text/html`)
-	urlLikeRe    = regexp.MustCompile(`^(?:[a-z]+:|/|#|\.{1,2}/|[\w./-]+\.(?:png|jpe?g|gif|svg|webp|pdf|md|js|css|html?)$)|^\d{4}-\d{2}-\d{2}`)
-	// JSON keys whose string values are identifiers, never prose.
-	protectedKeys = []string{"src", "original", "href", "url", "id", "date", "start", "end", "lang", "code", "path", "from", "to",
-		"pattern", "flags", "tex", "file", "key", "type", "state", "marker", "branch", "method", "status", "version", "keys", "format", "palette", "theme",
-		"kind", "rule", "fn", "f", "dx", "dy", "r", "expr", "sig", "wave", "dist", "mode", "dir", "layout", "precision", "better", "mine", "sep", "hl", "auth", "db",
-		"vars", "ones", "dc", "init", "points", "links", "ptr", "mark", "cols", "sets", "since", "added", "deprecated", "removed", "use", "n"}
-	// stateWords are the fixed state names of WiMark tuples ["build", "passing", "ok"]:
-	// they stay in English in every language.
-	stateWords = map[string]bool{"ok": true, "done": true, "pass": true, "fail": true, "skip": true, "warn": true, "warning": true, "error": true,
-		"danger": true, "tip": true, "note": true, "important": true, "info": true, "pending": true, "running": true, "todo": true, "degraded": true,
-		"down": true, "up": true, "good": true, "bad": true, "pos": true, "neg": true, "accepted": true, "proposed": true, "rejected": true, "superseded": true}
+	listItemRe   = regexp.MustCompile(`^(?:[-*+]|\d+[.)])\s`)
 )
 
 // fence is one fenced code block of a Markdown text.
@@ -115,38 +104,21 @@ func checkTranslation(src, out string, s *Site) (problems, notes []string) {
 	} else {
 		for i := range sf {
 			a, b := sf[i], of[i]
-			an, ao, aw := a.wimark()
-			bn, bo, _ := b.wimark()
-			if !aw {
-				if a.info != b.info {
-					problems = append(problems, fmt.Sprintf("block %d changed kind: %q → %q", i+1, a.info, b.info))
-				} else if a.body != b.body {
-					problems = append(problems, fmt.Sprintf("code block %d (%s) was changed", i+1, cmp.Or(a.info, "text")))
-				}
-				continue
-			}
-			if an != bn {
-				problems = append(problems, fmt.Sprintf("block %d changed WiMark: %q → %q", i+1, an, bn))
-				continue
-			}
-			what := "wimark-" + an
-			if why := sameJSON(ao, bo); why != "" {
-				problems = append(problems, fmt.Sprintf("block %d (%s) options: %s", i+1, what, why))
-			}
-			if strings.TrimSpace(a.body) == "" {
-				if strings.TrimSpace(b.body) != "" {
-					problems = append(problems, fmt.Sprintf("block %d (%s) was empty and got content", i+1, what))
-				}
-				continue
-			}
-			var x any
-			if json.Unmarshal([]byte(a.body), &x) != nil {
-				continue // a text body: translated freely
-			}
-			if why := sameJSON(a.body, b.body); why != "" {
-				problems = append(problems, fmt.Sprintf("block %d (%s): %s", i+1, what, why))
+			an, _, aw := a.wimark()
+			switch {
+			case !aw && a.info != b.info:
+				problems = append(problems, fmt.Sprintf("block %d changed kind: %q → %q", i+1, a.info, b.info))
+			case !aw && a.body != b.body:
+				problems = append(problems, fmt.Sprintf("code block %d (%s) was changed", i+1, cmp.Or(a.info, "text")))
+			case aw && (a.info != b.info || a.body != b.body):
+				// Widgets are copied, never translated: labels included.
+				problems = append(problems, fmt.Sprintf("block %d (wimark-%s) was changed: widgets must be copied exactly", i+1, an))
 			}
 		}
+	}
+	if a, b := shape(sp), shape(op); a != b {
+		problems = append(problems, fmt.Sprintf("structure changed: %d paragraphs, %d list items, %d table rows → %d, %d, %d (merged, split, added or dropped)",
+			a[0], a[1], a[2], b[0], b[1], b[2]))
 	}
 	if a, b := matches(linkRe, sp, 1), matches(linkRe, op, 1); !slices.Equal(a, b) {
 		problems = append(problems, "links or images changed (their URLs must stay the same)")
@@ -164,73 +136,28 @@ func checkTranslation(src, out string, s *Site) (problems, notes []string) {
 	return problems, notes
 }
 
-// sameShape compares two JSON values: same keys, same lengths, same numbers
-// and booleans; strings may differ (they are translated) except identifiers
-// (protected keys, URLs, paths, dates).
-func sameShape(a, b any, at string) string {
-	switch x := a.(type) {
-	case map[string]any:
-		y, ok := b.(map[string]any)
-		if !ok {
-			return at + ": not an object any more"
-		}
-		ka, kb := sortedKeys(x), sortedKeys(y)
-		if !slices.Equal(ka, kb) {
-			return fmt.Sprintf("%s: keys changed %v → %v", cmp.Or(at, "top"), ka, kb)
-		}
-		for _, k := range ka {
-			if slices.Contains(protectedKeys, k) {
-				if !reflect.DeepEqual(x[k], y[k]) {
-					return fmt.Sprintf("%s.%s must not change", at, k)
-				}
-				continue
-			}
-			if why := sameShape(x[k], y[k], at+"."+k); why != "" {
-				return why
-			}
-		}
-	case []any:
-		y, ok := b.([]any)
-		if !ok || len(x) != len(y) {
-			return at + ": list length changed"
-		}
-		for i := range x {
-			if why := sameShape(x[i], y[i], fmt.Sprintf("%s[%d]", at, i)); why != "" {
-				return why
-			}
-		}
-	case string:
-		y, ok := b.(string)
-		if !ok {
-			return at + ": not a string any more"
-		}
-		if urlLikeRe.MatchString(x) && x != y {
-			return fmt.Sprintf("%s: %q looks like a URL, path or date and must not change", at, x)
-		}
-		if (stateWords[x] || strings.HasPrefix(x, "\\")) && x != y {
-			return fmt.Sprintf("%s: %q is a state or LaTeX and must not change", at, x)
-		}
-	default:
-		if !reflect.DeepEqual(a, b) {
-			return fmt.Sprintf("%s: value changed %v → %v", at, a, b)
+// shape counts the paragraphs, list items and table rows of Markdown prose.
+// A faithful translation keeps all three: a change means sentences were
+// merged, split, added or dropped.
+func shape(prose string) [3]int {
+	var n [3]int
+	inPara := false
+	for _, l := range strings.Split(prose, "\n") {
+		t := strings.TrimSpace(l)
+		switch {
+		case t == "", headingRe.MatchString(t):
+			inPara = false
+		case listItemRe.MatchString(t):
+			n[1]++
+			inPara = true // continuation lines belong to the item
+		case strings.HasPrefix(t, "|"):
+			n[2]++
+		case !inPara:
+			n[0]++
+			inPara = true
 		}
 	}
-	return ""
-}
-
-// sameJSON compares two JSON sources: b must parse and keep a's shape.
-func sameJSON(a, b string) string {
-	if strings.TrimSpace(a) == "" && strings.TrimSpace(b) == "" {
-		return ""
-	}
-	var x, y any
-	if err := json.Unmarshal([]byte(b), &y); err != nil {
-		return fmt.Sprintf("invalid JSON: %v", err)
-	}
-	if json.Unmarshal([]byte(a), &x) != nil {
-		return ""
-	}
-	return sameShape(x, y, "")
+	return n
 }
 
 // checkPage checks a converted page: a title, known widgets with valid JSON,
@@ -295,17 +222,10 @@ func checkWidget(ctx context.Context, name, code string, s *Site) (problems, not
 	}
 	problems = append(problems, CheckWidgetSource(name, code)...)
 	if regexp.MustCompile(`dependencies\s*:\s*\[\s*[^\]\s]`).MatchString(code) {
-		problems = append(problems, "external dependencies are not allowed in a generated widget")
+		problems = append(problems, "external dependencies are not allowed in a widget")
 	}
 	if regexp.MustCompile(`https?://`).MatchString(code) {
 		notes = append(notes, "the widget mentions a URL: check what it links to")
-	}
-	if ws, err := s.Widgets(); err == nil {
-		for _, w := range ws {
-			if w.Name == name && !w.Site {
-				notes = append(notes, fmt.Sprintf("a site widget named %q replaces the engine widget", name))
-			}
-		}
 	}
 	node, err := exec.LookPath("node")
 	if err != nil {

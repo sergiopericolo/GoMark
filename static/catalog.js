@@ -2,8 +2,8 @@
  * GoMark — catalog.js
  * The WiMark catalog: every WiMark in one list, live, each with an editor
  * (a form for its inline options, the block source as you would write it,
- * copy as Markdown) and a theme switch to check monochrome, bicolor and
- * colored themes.
+ * copy as Markdown) and a theme switch to check monochrome and bicolor
+ * themes.
  */
 (function (global) {
   'use strict';
@@ -148,7 +148,7 @@
     again.addEventListener('click', function () { reset(item); render(item); });
 
     art.appendChild(h('header', 'cat-item-head',
-      h('div', 'cat-item-name', h('code', null, 'wimark-' + w.name), def.input === 'text' ? h('span', 'wm-tag', 'text body') : null, w.site ? h('span', 'wm-tag', 'site') : null),
+      h('div', 'cat-item-name', h('code', null, 'wimark-' + w.name), def.input === 'text' ? h('span', 'wm-tag', 'text body') : null),
       h('div', 'cat-item-title', def.title || w.name),
       def.description ? h('p', 'cat-item-desc', def.description) : null));
     art.appendChild(h('div', 'cat-preview page-body', item.host));
@@ -178,6 +178,9 @@
     });
     var count = document.getElementById('cat-count'), total = all.length;
     count.textContent = total + ' WiMarks';
+    if (!total) {
+      list.appendChild(h('div', 'wm-card wm-text', W.inline('No WiMarks yet: create one with `gomark widget new <name>` or `gomark ai widget <name> "<description>"`.')));
+    }
 
     // Mount in order, after each WiMark's dependencies.
     all.reduce(function (p, item) {

@@ -88,7 +88,14 @@ func (s *Site) builder(lang string) (*builder, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &builder{site: s, lang: lang, tmpl: tmpl, sections: s.Config.SectionsFor(lang), strings: uiStrings(s.Config, lang), widgets: map[string]string{}}
+	r := &builder{
+		site:     s,
+		lang:     lang,
+		tmpl:     tmpl,
+		sections: s.Config.SectionsFor(lang),
+		strings:  uiStrings(s.Config, lang),
+		widgets:  map[string]string{},
+	}
 	for _, w := range ws {
 		r.widgets[w.Name] = w.Path
 	}
@@ -224,8 +231,6 @@ func (r *builder) exec(ctx *Context) ([]byte, error) {
 	return b.Bytes(), err
 }
 
-// ─── Public entry points ────────────────────────────────────────────────────
-
 // Stats summarizes a build.
 type Stats struct {
 	Lang      string
@@ -300,6 +305,7 @@ func (s *Site) build(lang, out string, switches bool) (*Stats, error) {
 	}
 	st := &Stats{Lang: r.lang, Out: out}
 	r.media = map[string][]byte{}
+	var index [][]any
 	write := func(rel string, ctx *Context) error {
 		if switches {
 			ctx.Switch = r.switchTo(rel)
@@ -324,13 +330,16 @@ func (s *Site) build(lang, out string, switches bool) (*Stats, error) {
 			var p *Page
 			if p, err = r.indexPage(t, sec); err == nil {
 				err = write(path.Join(sec.ID, "index.html"), r.sectionPage(t, p))
+				index = append(index, searchEntry(path.Join(sec.ID, "index.html"), p))
 			}
 		default:
 			err = eachFolder(t.Root, func(f *Folder) error {
 				return write(path.Join(sec.ID, f.RelPath, "index.html"), r.folder(t, f))
 			})
 			for i := 0; err == nil && i < len(pages); i++ {
-				err = write(path.Join(sec.ID, pages[i].URL), r.page(t, pages[i]))
+				url := path.Join(sec.ID, pages[i].URL)
+				err = write(url, r.page(t, pages[i]))
+				index = append(index, searchEntry(url, pages[i]))
 			}
 		}
 		if err != nil {
@@ -343,6 +352,9 @@ func (s *Site) build(lang, out string, switches bool) (*Stats, error) {
 	}
 	if err := write("index.html", r.home()); err != nil {
 		return nil, fmt.Errorf("[%s] home: %w", r.lang, err)
+	}
+	if err := writeSearchIndex(out, index); err != nil {
+		return nil, fmt.Errorf("[%s] search index: %w", r.lang, err)
 	}
 	if st.Assets, err = s.copyStatic(out); err != nil {
 		return nil, fmt.Errorf("static assets: %w", err)
@@ -409,8 +421,6 @@ func (s *Site) Render(lang, target string) ([]byte, error) {
 	return nil, fmt.Errorf("section %q is not defined in %s", id, ConfigFile)
 }
 
-// ─── Template support ───────────────────────────────────────────────────────
-
 var funcs = template.FuncMap{
 	"add":        func(a, b int) int { return a + b },
 	"baseName":   base,
@@ -440,15 +450,18 @@ func safeFont(name, fallback string) string {
 
 // styleVars turns [style] into CSS variables.
 func styleVars(s Style) template.CSS {
-	body := "var(--mono)"
+	body, heading := "var(--mono)", "var(--mono)"
 	if s.BodyFont == "sans" {
 		body = "var(--sans)"
 	}
+	if s.HeadingFont == "sans" {
+		heading = "var(--sans)"
+	}
 	return template.CSS(fmt.Sprintf(`--mono:"%s", ui-monospace, "SF Mono", Menlo, Consolas, monospace;`+
 		`--sans:"%s", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;`+
-		`--font-body:%s;--font-size:%dpx;--content-width:%dpx;--sidebar-width:%dpx;`+
+		`--font-body:%s;--font-heading:%s;--font-size:%dpx;--content-width:%dpx;--sidebar-width:%dpx;`+
 		`--folders-width:%dpx;--toc-width:%dpx;--radius:%dpx;--radius-sm:%dpx;`,
-		safeFont(s.FontMono, "JetBrains Mono"), safeFont(s.FontSans, "IBM Plex Sans"), body,
+		safeFont(s.FontMono, "JetBrains Mono"), safeFont(s.FontSans, "IBM Plex Sans"), body, heading,
 		s.FontSize, s.ContentWidth, s.SidebarWidth, s.FoldersWidth, s.TocWidth, s.Radius, max(0, s.Radius-1)))
 }
 

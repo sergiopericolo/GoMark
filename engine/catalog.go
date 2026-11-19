@@ -14,7 +14,6 @@ import (
 type CatalogWidget struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
-	Site bool   `json:"site"`
 }
 
 type catalogTheme struct {
@@ -39,7 +38,7 @@ type catalogContext struct {
 	}
 }
 
-// CatalogWidgets lists every WiMark, engine and site, in one list by name.
+// CatalogWidgets lists the site's WiMarks by name.
 func (s *Site) CatalogWidgets() ([]CatalogWidget, error) {
 	ws, err := s.Widgets()
 	if err != nil {
@@ -47,7 +46,7 @@ func (s *Site) CatalogWidgets() ([]CatalogWidget, error) {
 	}
 	out := make([]CatalogWidget, 0, len(ws))
 	for _, w := range ws {
-		out = append(out, CatalogWidget{w.Name, w.Path, w.Site})
+		out = append(out, CatalogWidget{w.Name, w.Path})
 	}
 	slices.SortFunc(out, func(a, b CatalogWidget) int { return strings.Compare(a.Name, b.Name) })
 	return out, nil
@@ -70,9 +69,17 @@ func (s *Site) Catalog() ([]byte, error) {
 		return nil, fmt.Errorf("cannot load catalog template: %w", err)
 	}
 	cfg := s.Config
-	ctx := catalogContext{Site: cfg.Site, Lang: cfg.DefaultLang(), Style: cfg.Style,
-		StyleVars: styleVars(cfg.Style), FontsURL: fontsURL(cfg.Style), Version: Version}
-	ctx.Data.Theme, ctx.Data.Widgets, ctx.Data.Lang = cfg.Site.Theme, widgets, cfg.DefaultLang()
+	ctx := catalogContext{
+		Site:      cfg.Site,
+		Lang:      cfg.DefaultLang(),
+		Style:     cfg.Style,
+		StyleVars: styleVars(cfg.Style),
+		FontsURL:  fontsURL(cfg.Style),
+		Version:   Version,
+	}
+	ctx.Data.Theme = cfg.Site.Theme
+	ctx.Data.Widgets = widgets
+	ctx.Data.Lang = cfg.DefaultLang()
 	for _, t := range Themes() {
 		ctx.Data.Themes = append(ctx.Data.Themes, catalogTheme{t, ThemeClass(t)})
 	}
