@@ -80,7 +80,7 @@ Set the provider once in `[ai]`; keys come from the environment only:
 
 | `provider` | Key | Notes |
 |---|---|---|
-| `deepseek` | `DEEPSEEK_API_KEY` | `model = "deepseek-v4-pro"` |
+| `deepseek` | `DEEPSEEK_API_KEY` | `model = "deepseek-flash"` (or `deepseek-v4-pro`); `effort` low/medium → low, high → high, xhigh/max → max |
 | `anthropic` | `ANTHROPIC_API_KEY` | |
 | `openai` | `OPENAI_API_KEY` | any compatible API via `GOMARK_AI_ENDPOINT` |
 | `command` | — | runs `GOMARK_AI_COMMAND`, e.g. `claude -p` |

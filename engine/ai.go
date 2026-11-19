@@ -42,10 +42,13 @@ const (
 	aiAPIVersion   = "2026-10-21"
 	aiFallbackBeta = "server-side-fallback-2026-07-01"
 	aiMaxTokens    = 16000
-	aiTimeout      = 10 * time.Minute
-	aiMaxOutput    = 4 << 20
-	aiOpenTag      = "<gomark-output>"
-	aiCloseTag     = "</gomark-output>"
+	// DeepSeek counts its reasoning in max_tokens: a long page at high effort
+	// went past 16000. Only the tokens used are billed.
+	aiChatMaxTokens = 64000
+	aiTimeout       = 10 * time.Minute
+	aiMaxOutput     = 4 << 20
+	aiOpenTag       = "<gomark-output>"
+	aiCloseTag      = "</gomark-output>"
 )
 
 // Proposal is one AI result waiting for review.
@@ -124,6 +127,7 @@ var newAIProvider = func(c AIConfig) (aiProvider, error) {
 			provider: c.Provider,
 			key:      key,
 			model:    c.Model,
+			effort:   c.Effort,
 			url:      strings.TrimSuffix(endpoint, "/") + "/chat/completions",
 			client:   &http.Client{Timeout: aiTimeout},
 		}, nil
@@ -250,9 +254,12 @@ func (a *anthropicProvider) complete(ctx context.Context, r aiRequest) (aiRespon
 // chatProvider speaks the OpenAI chat completions API, which DeepSeek and
 // many others implement.
 type chatProvider struct {
-	provider, key, model, url string
-	client                    *http.Client
+	provider, key, model, effort, url string
+	client                            *http.Client
 }
+
+// deepseekEffort maps [ai] effort onto the levels DeepSeek accepts.
+var deepseekEffort = map[string]string{"low": "low", "medium": "low", "high": "high", "xhigh": "max", "max": "max"}
 
 func (c *chatProvider) name() string { return c.provider }
 
@@ -260,16 +267,21 @@ func (c *chatProvider) complete(ctx context.Context, r aiRequest) (aiResponse, e
 	if r.PDF != nil {
 		return aiResponse{}, errors.New("internal: the " + c.provider + " provider takes text only")
 	}
-	body, _ := json.Marshal(map[string]any{
+	params := map[string]any{
 		"model":      c.model,
-		"max_tokens": aiMaxTokens,
+		"max_tokens": aiChatMaxTokens,
 		// Faithful, repeatable output: a translation is not a creative task.
 		"temperature": 0,
 		"messages": []any{
 			map[string]any{"role": "system", "content": r.System},
 			map[string]any{"role": "user", "content": wrapDocument(r) + "\n\n" + r.Task},
 		},
-	})
+	}
+	// Only DeepSeek: other compatible APIs may reject the field.
+	if e, ok := deepseekEffort[c.effort]; ok && c.provider == "deepseek" {
+		params["reasoning_effort"] = e
+	}
+	body, _ := json.Marshal(params)
 	var last error
 	for attempt := 0; attempt < 3; attempt++ {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url, bytes.NewReader(body))
@@ -319,7 +331,7 @@ func (c *chatProvider) complete(ctx context.Context, r aiRequest) (aiResponse, e
 		}
 		switch out.Choices[0].FinishReason {
 		case "length":
-			return aiResponse{}, fmt.Errorf("the answer was cut at %d tokens: split the input and run again", aiMaxTokens)
+			return aiResponse{}, fmt.Errorf("the answer was cut at %d tokens: split the input and run again", aiChatMaxTokens)
 		case "content_filter":
 			return aiResponse{}, errors.New("the model declined the request (content filter)")
 		}

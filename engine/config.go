@@ -144,7 +144,7 @@ func (c *Config) normalize() {
 	or(&c.Site.Out, def.Site.Out)
 	or(&c.AI.Provider, def.AI.Provider)
 	if c.AI.Provider == "deepseek" {
-		or(&c.AI.Model, "deepseek-v4-pro")
+		or(&c.AI.Model, "deepseek-flash")
 	}
 	or(&c.AI.Model, def.AI.Model)
 	or(&c.AI.Effort, def.AI.Effort)

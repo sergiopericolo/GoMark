@@ -325,7 +325,7 @@ func TestChatProvider(t *testing.T) {
 		io.WriteString(w, `{"model":"deepseek-v4-pro","choices":[{"finish_reason":"stop","message":{"content":"<gomark-output>ok</gomark-output>"}}],"usage":{"prompt_tokens":5,"completion_tokens":7}}`)
 	}))
 	defer srv.Close()
-	p := &chatProvider{provider: "deepseek", key: "k", model: "deepseek-v4-pro", url: srv.URL, client: srv.Client()}
+	p := &chatProvider{provider: "deepseek", key: "k", model: "deepseek-v4-pro", effort: "medium", url: srv.URL, client: srv.Client()}
 	resp, err := p.complete(context.Background(), aiRequest{System: "sys", Task: "task", Doc: "hello", Name: "a.md"})
 	if err != nil {
 		t.Fatal(err)
@@ -333,7 +333,7 @@ func TestChatProvider(t *testing.T) {
 	if calls.Load() != 2 || resp.Text != "<gomark-output>ok</gomark-output>" || resp.Input != 5 || resp.Output != 7 {
 		t.Fatalf("calls %d, response %+v", calls.Load(), resp)
 	}
-	if auth != "Bearer k" || body["model"] != "deepseek-v4-pro" || body["temperature"] != 0.0 {
+	if auth != "Bearer k" || body["model"] != "deepseek-v4-pro" || body["temperature"] != 0.0 || body["reasoning_effort"] != "low" {
 		t.Errorf("auth %q, body %v", auth, body)
 	}
 	msgs := body["messages"].([]any)
