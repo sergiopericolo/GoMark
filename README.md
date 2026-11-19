@@ -31,11 +31,11 @@ dist/            output
   published from another language, with a notice.
 - A section with `max_depth = N` holds pages up to N levels deep. Deeper pages
   are skipped and reported.
-- Colors live only in the theme. Two monochrome themes ship (neutrals
-  only): `light`, anthracite on ivory, and `dark`, ivory on anthracite.
-  `[site] theme` is the default; readers switch in the top bar and the
-  browser remembers their choice. A section with its own theme has no switch.
-  `gomark theme check` verifies them.
+- Colors live only in the theme. One monochrome theme ships: `light`,
+  anthracite on ivory, with code in a dark pane and one warm yellow kept for
+  a dot, a notice or a highlight (`--mark*`, `--wm-warn*`, `--wm-hl*` only).
+  Widgets spend it the same way: see the widget brief.
+  `gomark theme check` verifies it.
 - Every build writes a search index. Press `⌘K`, `Ctrl K` or `/` on any page.
 
 ## Widgets

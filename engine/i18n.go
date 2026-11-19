@@ -5,7 +5,7 @@ var strs = map[string]map[string]string{
 	"it": {
 		"docs": "Documentazione", "folders": "Cartelle", "pages": "Pagine", "files": "File",
 		"on_this_page": "In questa pagina", "no_toc": "Nessun indice", "index": "indice",
-		"depth": "profondità", "language": "Lingua", "theme": "Tema", "theme_light": "chiaro", "theme_dark": "scuro",
+		"depth": "profondità", "language": "Lingua",
 		"untranslated": "Questa pagina non è disponibile in italiano: viene mostrata la versione in un'altra lingua.",
 		"copy":         "copia", "copied": "copiato", "words": "parole", "min_read": "min di lettura",
 		"expand": "Espandi", "collapse": "Comprimi", "sections": "Sezioni", "home": "home",
@@ -18,7 +18,7 @@ var strs = map[string]map[string]string{
 	"en": {
 		"docs": "Documentation", "folders": "Folders", "pages": "Pages", "files": "Files",
 		"on_this_page": "On this page", "no_toc": "No outline", "index": "index",
-		"depth": "depth", "language": "Language", "theme": "Theme", "theme_light": "light", "theme_dark": "dark",
+		"depth": "depth", "language": "Language",
 		"untranslated": "This page is not available in English: showing the version in another language.",
 		"copy":         "copy", "copied": "copied", "words": "words", "min_read": "min read",
 		"expand": "Expand", "collapse": "Collapse", "sections": "Sections", "home": "home",

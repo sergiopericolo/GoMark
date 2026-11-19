@@ -113,7 +113,9 @@ const widgetTemplate = `/*
  * Rules (checked by gomark ai and the engine tests): no colors or fonts in
  * JavaScript — give elements classes, use WiMark.series(i) for series and
  * 'wm-' + WiMark.state(s) for states; build nodes with WiMark.h / WiMark.svg,
- * never innerHTML. The theme decides the look.
+ * never innerHTML. The theme decides the look. Yellow (wm-hl, wm-hl-zone,
+ * stats {hl: true}, state 'warn') only where the eye must land: one or two
+ * things at most, never a series or decoration.
  */
 WiMark.register('NAME', {
   title: 'NAME',

@@ -1,14 +1,15 @@
 /*
  * GoMark — theme.css
  * The look. Colors come from the active theme in static/themes/ (monochrome:
- * neutrals only). The values below are the
- * light theme, used when a theme leaves a token out. Fonts and sizes come
- * from [style].
+ * neutrals, plus one warm yellow in --mark*). The values below are the light
+ * theme, used when a theme leaves a token out. Fonts and sizes come from
+ * [style].
  *
  * Principles: a terminal, refined. A frame and one raised reading panel;
  * mono for everything that is a path, a count or a state, in hairline badges;
- * a prompt (❯) and line numbers; hierarchy from tone and
- * type, never from hue.
+ * a prompt (❯) and line numbers; code in a dark pane; hierarchy from tone and
+ * type, never from hue. The yellow is a light touch only: the current page's
+ * dot, a notice, a highlight.
  */
 :root {
   --bg:          #EFECE6;
@@ -23,17 +24,22 @@
   --on-accent:   #F9F7F3;
   --accent-soft: #E6E2DA;
 
-  --code-bg:     #F2EFE9;
-  --code-head:   #F2EFE9;
-  --code-line:   #E3DFD7;
-  --code-ink:    #3A3B3F;
-  --code-strong: #25262A;
-  --code-title:  #25262A;
-  --code-number: #25262A;
-  --code-type:   #6E6D68;
-  --code-string: #6E6D68;
-  --code-punct:  #9B9993;
-  --code-muted:  #9B9993;
+  --mark:        #E2A928;
+  --mark-soft:   #F6E7BC;
+  --mark-ink:    #7A5A12;
+
+  /* Code is a dark pane on the ivory page, like a terminal window. */
+  --code-bg:     #232428;
+  --code-head:   #1E1F22;
+  --code-line:   #35363B;
+  --code-ink:    #CFCBC2;
+  --code-strong: #F1EDE4;
+  --code-title:  #F1EDE4;
+  --code-number: #E4E0D7;
+  --code-type:   #A5A39C;
+  --code-string: #B8B4AB;
+  --code-punct:  #85837E;
+  --code-muted:  #85837E;
 
   --radius:    0px;
   --radius-sm: 0px;
@@ -55,9 +61,10 @@
   --wm-7: #25262A; --wm-on-7: #F9F7F3; --wm-dash-7: 1 3;
   --wm-8: #6E6D68; --wm-on-8: #F9F7F3; --wm-dash-8: 1 3;
   --wm-accent: #25262A; --wm-on-accent: #F9F7F3;
-  --wm-pos: #25262A; --wm-neg: #25262A; --wm-warn: #6E6D68; --wm-info: #9B9993;
-  --wm-on-pos: #F9F7F3; --wm-on-neg: #F9F7F3; --wm-on-warn: #F9F7F3; --wm-on-info: #F9F7F3;
-  --wm-pos-soft: #E6E2DA; --wm-neg-soft: #E6E2DA; --wm-warn-soft: #E6E2DA; --wm-info-soft: #E6E2DA;
+  --wm-pos: #25262A; --wm-neg: #25262A; --wm-warn: #E2A928; --wm-info: #9B9993;
+  --wm-on-pos: #F9F7F3; --wm-on-neg: #F9F7F3; --wm-on-warn: #25262A; --wm-on-info: #F9F7F3;
+  --wm-pos-soft: #E6E2DA; --wm-neg-soft: #E6E2DA; --wm-warn-soft: #F6E7BC; --wm-info-soft: #E6E2DA;
+  --wm-hl: #E2A928; --wm-on-hl: #25262A; --wm-hl-soft: #F6E7BC;
   --wm-soft: #E6E2DA; --wm-grid: #DCD8CF;
   --wm-heat-0: #E6E2DA; --wm-heat-1: #C9C6BE; --wm-heat-2: #9B9993; --wm-heat-3: #6E6D68; --wm-heat-4: #25262A;
 
@@ -66,18 +73,6 @@
   --wm-fill-5: var(--wm-5); --wm-fill-6: var(--wm-6); --wm-fill-7: var(--wm-7); --wm-fill-8: var(--wm-8);
   --wm-bg-1: var(--wm-1); --wm-bg-2: var(--wm-2); --wm-bg-3: var(--wm-3); --wm-bg-4: var(--wm-4);
   --wm-bg-5: var(--wm-5); --wm-bg-6: var(--wm-6); --wm-bg-7: var(--wm-7); --wm-bg-8: var(--wm-8);
-}
-
-/* code_theme = "light" | "dark" in gomark.toml forces the code colors. */
-body[data-code="light"] {
-  --code-bg: #F2EFE9; --code-head: #F2EFE9; --code-line: #E3DFD7;
-  --code-ink: #3A3B3F; --code-strong: #25262A; --code-title: #25262A; --code-number: #25262A;
-  --code-type: #6E6D68; --code-string: #6E6D68; --code-punct: #9B9993; --code-muted: #9B9993;
-}
-body[data-code="dark"] {
-  --code-bg: #1A1B1E; --code-head: #1A1B1E; --code-line: #2C2D32;
-  --code-ink: #CFCCC4; --code-strong: #EDE9E0; --code-title: #EDE9E0; --code-number: #EDE9E0;
-  --code-type: #98968F; --code-string: #98968F; --code-punct: #6C6C6B; --code-muted: #6C6C6B;
 }
 
 html { -webkit-text-size-adjust: 100%; }
@@ -94,7 +89,7 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-::selection { background: var(--accent); color: var(--on-accent); }
+::selection { background: var(--mark-soft); color: var(--ink); }
 
 a { color: inherit; }
 :focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
@@ -188,14 +183,14 @@ button { font: inherit; color: inherit; }
 .build-name { color: var(--gray); font-weight: 500; text-decoration: none; }
 a.build-name:hover { color: var(--ink); }
 
-/* Segmented switches (language, theme): a hairline box, the current one raised. */
-.lang-switch:not(label), .theme-switch {
+/* The language switch: a hairline box, the current one raised. */
+.lang-switch:not(label) {
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
-.lang-link, .theme-opt {
+.lang-link {
   color: var(--gray-soft);
   font-family: var(--mono);
   font-size: 10.5px;
@@ -209,8 +204,8 @@ a.build-name:hover { color: var(--ink); }
   padding: 0.45em 0.6em;
   transition: color 0.15s var(--ease), background 0.15s var(--ease);
 }
-.lang-link:hover, .theme-opt:hover { color: var(--ink); }
-.lang-link.current, .theme-opt[aria-pressed="true"] { color: var(--ink); background: var(--hover); }
+.lang-link:hover { color: var(--ink); }
+.lang-link.current { color: var(--ink); background: var(--hover); }
 .lang-select {
   font: inherit;
   font-size: 11px;
@@ -307,12 +302,13 @@ body[data-heading="mono"] .home-title { letter-spacing: -0.06em; font-weight: 70
 .page-meta { align-items: center; }
 .page-meta > .meta-tag { color: var(--ink); }
 .page-notice {
-  color: var(--gray);
+  color: var(--text);
   font-size: 12.5px;
-  background: var(--hover);
+  background: color-mix(in srgb, var(--mark-soft) 28%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--mark) 22%, var(--line));
   border-radius: var(--radius);
 }
-.page-notice::before { content: "!"; font-family: var(--mono); font-weight: 700; color: var(--ink); margin-right: 0.75em; }
+.page-notice::before { content: "!"; font-family: var(--mono); font-weight: 700; color: var(--mark-ink); margin-right: 0.75em; }
 
 /* ─── Text ────────────────────────────────────────────────────────────────── */
 .page-body {
@@ -369,6 +365,7 @@ body[data-heading="mono"] .page-body :is(h1, h2, h3, h4) { letter-spacing: -0.02
   transition: text-decoration-color 0.15s var(--ease);
 }
 .page-body a:hover { text-decoration-style: solid; text-decoration-color: var(--ink); }
+.page-body mark { color: var(--ink); background: var(--mark-soft); border-radius: var(--radius-sm); padding: 0.05em 0.2em; }
 .page-body a[href^="http"]:not(:has(img))::after { content: "↗"; font-family: var(--mono); font-size: 0.8em; color: var(--gray-soft); margin-left: 0.15em; }
 .page-body img { max-width: 100%; border-radius: var(--radius); }
 
@@ -464,7 +461,7 @@ body[data-heading="mono"] .page-body :is(h1, h2, h3, h4) { letter-spacing: -0.02
 .page-body tbody tr:hover td { background: color-mix(in srgb, var(--hover) 55%, transparent); }
 .page-body th {
   color: var(--gray);
-  background: var(--code-bg);
+  background: color-mix(in srgb, var(--bg) 60%, var(--surface));
   font-size: 10.5px;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -481,7 +478,7 @@ body[data-heading="mono"] .page-body :is(h1, h2, h3, h4) { letter-spacing: -0.02
 .file-link.active { color: var(--ink); background: var(--hover); }
 .file-name { font-family: var(--sans); font-size: 13.5px; font-weight: 500; letter-spacing: -0.01em; }
 .file-path { color: var(--gray-soft); font-size: 10.5px; margin-top: 2px; }
-.file-link.active .file-name::before { content: "●"; font-size: 0.6em; vertical-align: 0.2em; margin-right: 0.6em; color: var(--ink); }
+.file-link.active .file-name::before { content: "●"; font-size: 0.6em; vertical-align: 0.2em; margin-right: 0.6em; color: var(--mark); }
 .file-empty { color: var(--gray-soft); font-size: 12px; list-style: none; }
 
 .index-label { color: var(--gray-soft); }
@@ -590,7 +587,7 @@ body[data-heading="mono"] .page-body :is(h1, h2, h3, h4) { letter-spacing: -0.02
 .search-title { color: var(--ink); font-family: var(--sans); font-size: 14.5px; font-weight: 500; letter-spacing: -0.01em; }
 .search-heading { color: var(--gray); font-size: 11.5px; }
 .search-snippet { color: var(--gray); font-family: var(--font-body); font-size: 13px; line-height: 1.55; }
-.search mark { color: var(--ink); background: none; text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 0.2em; }
+.search mark { color: var(--ink); background: var(--mark-soft); border-radius: var(--radius-sm); padding: 0 0.1em; }
 .search-hint { color: var(--gray-soft); border-top: 1px solid var(--line); }
 .search-empty { color: var(--gray-soft); font-size: 12px; }
 

@@ -42,8 +42,6 @@ func (s *Site) Settings() []Setting {
 				opts = Themes()
 			case key == "style.body_font", key == "style.heading_font":
 				opts = []string{"mono", "sans"}
-			case key == "style.code_theme":
-				opts = []string{"auto", "light", "dark"}
 			case key == "ai.provider":
 				opts = []string{"anthropic", "deepseek", "openai", "command"}
 			case key == "ai.effort":

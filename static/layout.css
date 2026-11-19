@@ -45,8 +45,6 @@ body {
 .lang-switch { display: flex; align-items: center; gap: 0.5rem; }
 .lang-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .lang-select { padding: 0.2rem 0.4rem; cursor: pointer; }
-.theme-switch { display: flex; align-items: center; }
-.theme-opt { cursor: pointer; }
 
 /* ─── Main grid ───────────────────────────────────────────────────────────── */
 .grid {

@@ -2,7 +2,9 @@
  * GoMark — wimark.css
  * The look of every WiMark. Colors come only from theme tokens (--wm-*, --ink,
  * --line…), fonts only from --mono / --sans / --font-body: switching theme
- * never breaks a widget.
+ * never breaks a widget. The one hue is the theme's yellow (--wm-hl,
+ * --wm-warn): wm-hl on the mark that matters, wm-hl-zone, wm-hl-text, a
+ * readout with hl — a light touch, never a series or decoration.
  */
 
 /* ─── Base ────────────────────────────────────────────────────────────────── */
@@ -34,6 +36,9 @@
   border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.25rem 0.65rem;
 }
 .wm-btn:hover { border-color: var(--gray-soft); }
+.wm-btn:disabled { cursor: default; }
+.wm-btn:disabled:not([aria-pressed="true"]):hover { border-color: var(--line); }
+.wm-btn.wm-struck { color: var(--gray-soft); text-decoration: line-through; }
 .wm-btn[aria-pressed="true"], .wm-btn.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 .wm-btn-accent { color: var(--wm-on-accent); background: var(--wm-accent); border-color: var(--wm-accent); }
 .wm a.wm-btn { color: var(--ink); text-decoration: none; }
@@ -60,6 +65,15 @@
 .wm-s7 { --c: var(--wm-7); --on: var(--wm-on-7); --dash: var(--wm-dash-7); --fill: var(--wm-fill-7); --bgf: var(--wm-bg-7); }
 .wm-s8 { --c: var(--wm-8); --on: var(--wm-on-8); --dash: var(--wm-dash-8); --fill: var(--wm-fill-8); --bgf: var(--wm-bg-8); }
 .wm-s-other { --c: var(--gray-soft); --on: var(--bg); --dash: 1 3; --fill: var(--gray-soft); --bgf: var(--gray-soft); }
+
+/* The highlight: the one mark the eye must find. Works like a series class. */
+.wm-hl { --c: var(--wm-hl); --on: var(--wm-on-hl); --soft: var(--wm-hl-soft); --fill: var(--wm-hl); --bgf: var(--wm-hl); --dash: none; }
+.wm-hl-zone { fill: var(--wm-hl-soft); opacity: 0.45; stroke: none; }
+.wm-zone { fill: var(--wm-soft); opacity: 0.7; stroke: none; }
+.wm-hl-text { color: var(--ink); background: var(--wm-hl-soft); border-radius: var(--radius-sm); padding: 0 0.25em; }
+.wm-dot.wm-hl { stroke: var(--ink); stroke-width: 1.25; }
+.wm-line.wm-hl { stroke-width: 2.25; }
+.wm-mark.wm-hl, .wm-cell.wm-hl { fill: var(--wm-hl-soft); stroke: var(--wm-hl); stroke-width: 1.5; }
 
 /* Heat steps 0…4 (sequential, one hue) */
 .wm-h0 { --c: var(--wm-heat-0); } .wm-h1 { --c: var(--wm-heat-1); } .wm-h2 { --c: var(--wm-heat-2); }
@@ -103,6 +117,62 @@
 .wm-tex-ink { fill: var(--c); }
 .wm-hit { fill: transparent; stroke: none; }
 
+/* Chart labels: a halo of the panel color keeps them legible over lines. */
+.wm-chart .wm-tag-text { paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; font-size: 10.5px; }
+.wm-chart .wm-tag-text.wm-strong { fill: var(--ink); font-weight: 600; }
+.wm-chart .wm-axis-title { fill: var(--gray-soft); font-size: 10.5px; letter-spacing: 0.02em; }
+.wm-chart .wm-axis text { fill: var(--gray-soft); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.wm-figure-title { font-size: 11.5px; font-weight: 500 !important; color: var(--gray) !important; letter-spacing: 0; }
+
+/* ─── Panes: the frame of an interactive WiMark ───────────────────────────── */
+.wm-pane { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.wm-pane-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.5rem 1rem; border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 45%, var(--surface)); font-size: 11.5px;
+}
+.wm-pane-title { color: var(--ink); font-weight: 500; min-width: 0; }
+.wm-pane-title::before { content: "❯"; color: var(--gray-soft); margin-right: 0.6em; }
+.wm-pane-title:empty::before { content: none; }
+.wm-pane-tag {
+  flex: none; color: var(--gray); font-size: 9.5px; font-weight: 500; line-height: 1; letter-spacing: 0.08em;
+  text-transform: uppercase; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.35em 0.5em;
+}
+.wm-pane-body { padding: 1.1rem 1.1rem 0.9rem; }
+.wm-pane-body > .wm-grid { gap: 1.5rem; }
+.wm-pane-body > .wm-legend { margin-top: 0.4rem !important; }
+.wm-pane-section { border-top: 1px solid var(--line); padding: 0.75rem 1.1rem; }
+.wm-pane-section.wm-flush { padding: 0; }
+.wm-pane-section .wm-table-wrap { margin: 0; }
+
+.wm-controls { display: grid; gap: 0.1rem 2rem; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); }
+.wm-controls .wm-slider { margin: 0; min-height: 2rem; }
+.wm-slider-label { flex: 0 0 auto; min-width: 8.5rem; color: var(--gray); font-size: 11.5px; }
+.wm-controls .wm-range { flex: 1 1 auto; min-width: 4rem; }
+.wm-slider output { flex: none; min-width: 6ch; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
+.wm-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.wm-toolbar .wm-slider { margin: 0; }
+
+.wm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); overflow: hidden; }
+.wm-stat { padding: 0.7rem 1.1rem 0.75rem; min-width: 0; box-shadow: -1px -1px 0 var(--line); }  /* hairlines between cells, at any wrap */
+.wm-stat-label { color: var(--gray-soft); font-size: 11px; font-weight: 400; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wm-stat-value { color: var(--ink); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; margin-top: 0.25rem; white-space: nowrap; }
+.wm-stat.wm-hl .wm-stat-label::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--wm-hl); margin-right: 0.5em; vertical-align: 0.1em;
+}
+
+.wm-note {
+  display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.75rem 1.1rem; border-top: 1px solid var(--line);
+  font-family: var(--font-body); font-size: 13px; line-height: 1.55; color: var(--text);
+}
+.wm-note .wm-icon { margin-top: 0.1em; }
+.wm-note.wm-warn { background: color-mix(in srgb, var(--wm-warn-soft) 35%, var(--surface)); }
+@media (max-width: 700px) {
+  .wm-controls { grid-template-columns: minmax(0, 1fr); }
+  .wm-slider-label { min-width: 7rem; }
+}
+
 /* Legends, data tables, tooltips */
 .wm-legend { display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; margin: 0.6rem 0 0 !important; font-size: 12px; color: var(--gray); }
 .wm-legend li { display: flex; align-items: center; gap: 0.45rem; }
@@ -126,7 +196,7 @@
 }
 .page-body .wm-table thead th, .wm-table thead th {
   background: none; color: var(--gray-soft); border-bottom-color: var(--ink);
-  font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap;
+  font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; white-space: nowrap;
 }
 .page-body .wm-table tbody th, .wm-table tbody th { background: none; color: var(--ink); font-weight: 700; text-transform: none; letter-spacing: 0; font-size: inherit; white-space: normal; }
 .wm-table tbody tr:last-child > * { border-bottom: 0; }
@@ -149,7 +219,7 @@
 }
 .wm-code pre code { background: none; border: 0; padding: 0; color: inherit; font-size: inherit; }
 .wm-code-line { display: block; min-height: 1.7em; }
-.wm-code-line.wm-mark-line { background: var(--code-line); }
+.wm-code-line.wm-mark-line { background: var(--code-line); box-shadow: inset 2px 0 0 var(--mark); }
 .wm-ln { display: inline-block; width: 3ch; margin-right: 1.2ch; text-align: right; color: var(--code-punct); user-select: none; }
 
 /* ─── Diagrams (shared by developer WiMarks) ──────────────────────────────── */

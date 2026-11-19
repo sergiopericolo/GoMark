@@ -36,8 +36,7 @@ Work in this order and do not skip the check or the look.
    It applies the rules and parses the file with node.
 6. **Look.** Use the block in a page, then `gomark build`, or
    `gomark widget preview` and open `http://localhost:8080/?only=<name>`.
-   Check both themes with `&theme=light` and `&theme=dark`. Without
-   a browser tool, take a screenshot with headless Chrome:
+   Without a browser tool, take a screenshot with headless Chrome:
 
    ```sh
    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
@@ -60,6 +59,28 @@ Work in this order and do not skip the check or the look.
 - Build nodes with `WiMark.h` and `WiMark.svg`, text with `WiMark.inline`.
   No `innerHTML`, no `eval`, no network, no dependencies, ES5 (`var`,
   `function`).
+- **Yellow is the one hue, and a light touch.** The theme is monochrome plus
+  one warm yellow. Spend it only where the reader's eye must land, one or two
+  things per widget at most:
+  - `wm-hl` on the mark that matters (the optimum, the equilibrium, the
+    current choice): it works like a series class on a dot, line or bar;
+  - `wm-hl-zone` for a soft highlighted region of a chart;
+  - `{ hl: true }` on the key readout of `WiMark.stats` (a yellow dot);
+  - `wm-hl-text` for one highlighted number in text;
+  - the state `'warn'` (icons, `WiMark.note`) for a real warning.
+
+  Never a whole series or every point, never text drawn in yellow, never
+  backgrounds, borders or decoration. When nothing deserves the eye, use no
+  yellow.
+- **Interactive widgets sit in a pane.** `WiMark.pane(el, { title, tag })`
+  gives a hairline frame with a mono head, like a code block. Charts go in
+  `pane.body`; sliders (`WiMark.controls`), readouts (`WiMark.stats`) and a
+  verdict (`WiMark.note`) each in their own `pane.section()`.
+- **No overlaps.** Chart labels go through `c.label(x, y, text)`: a halo and
+  the first free spot. Points through `c.dot`, so labels avoid them. Curves
+  that can leave the plot through `c.clipped`. Name axes with `xTitle` /
+  `yTitle` in `WiMark.chart`.
+- **The page language.** User-facing strings with `WiMark.say({ en, it })`.
 - Prefer SVG and the runtime helpers to canvas: `WiMark.chart`,
   `WiMark.scale.linear` / `band`, `axisY`, `axisXLinear`, `WiMark.plotPath`,
   `WiMark.legend`, `WiMark.dataTable`.

@@ -460,6 +460,19 @@ named "NAME" and does what the document describes. Rules, all required:
 - never write colors or fonts: give elements classes; series colors come from
   WiMark.series(i), states from 'wm-' + WiMark.state(name), charts from
   WiMark.chart(el, opts);
+- yellow is the theme's one hue, a light touch: spend it only where the
+  reader's eye must land, one or two things at most — the mark that matters
+  (optimum, equilibrium, current choice) with class wm-hl, a soft region with
+  wm-hl-zone, the key readout with {hl: true} in WiMark.stats, one number in
+  text with wm-hl-text, a real warning with state 'warn'. Never a whole
+  series, yellow text, backgrounds, borders or decoration; when nothing
+  deserves the eye, no yellow;
+- an interactive widget sits in WiMark.pane(el, {title, tag}): charts in its
+  body, sliders from WiMark.controls, readouts from WiMark.stats, a verdict
+  from WiMark.note, each in pane.section(); chart labels through c.label
+  (halo, no overlaps), curves through c.clipped (never off the plot), axis
+  names with xTitle / yTitle; user-facing strings in the page language with
+  WiMark.say({en: …, it: …});
 - a widget has no stylesheet of its own: build the look from the shared
   classes below, and use style only for geometry (width, height, --cols);
 - use the runtime helpers below instead of writing your own (scales, axes,

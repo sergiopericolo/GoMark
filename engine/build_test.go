@@ -161,7 +161,18 @@ func TestImageWiMarkStaysInsideTheSite(t *testing.T) {
 
 func TestSectionTheme(t *testing.T) {
 	s := testSite(t)
-	if err := s.Set("sections.notes.theme", "dark"); err != nil {
+	// A second theme, a copy of light: the repo ships only one.
+	assets := t.TempDir()
+	for _, d := range []string{"static", "templates"} {
+		if err := os.CopyFS(filepath.Join(assets, d), os.DirFS(filepath.Join("..", d))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(assets, "static", "themes", "paper.css"), []byte(read(t, "../static/themes/light.css")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	Assets = os.DirFS(assets)
+	if err := s.Set("sections.notes.theme", "paper"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.NewPage("", "notes", "x.md", "X"); err != nil {
@@ -171,18 +182,11 @@ func TestSectionTheme(t *testing.T) {
 	if _, err := s.Build("", out); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(read(t, filepath.Join(out, "notes", "x", "index.html")), "themes/dark.css") {
+	if !strings.Contains(read(t, filepath.Join(out, "notes", "x", "index.html")), "themes/paper.css") {
 		t.Error("the section page does not use the section theme")
 	}
 	if !strings.Contains(read(t, filepath.Join(out, "index.html")), "themes/light.css") {
 		t.Error("the home page lost the site theme")
-	}
-	if home := read(t, filepath.Join(out, "index.html")); !strings.Contains(home, `data-theme-set="light"`) ||
-		!strings.Contains(home, `themes/dark.css" data-theme-css="dark" media="not all"`) {
-		t.Error("the home page has no theme switch, or the other theme is not idle")
-	}
-	if strings.Contains(read(t, filepath.Join(out, "notes", "x", "index.html")), "data-theme-set") {
-		t.Error("a section with its own theme shows the switch")
 	}
 	if err := s.Set("sections.notes.theme", "nope"); err == nil {
 		t.Error("an unknown theme was accepted")

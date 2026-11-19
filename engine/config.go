@@ -49,7 +49,6 @@ type Style struct {
 	FoldersWidth int    `toml:"folders_width"`
 	TocWidth     int    `toml:"toc_width"`
 	Radius       int    `toml:"radius"`
-	CodeTheme    string `toml:"code_theme"` // "auto" | "light" | "dark"
 }
 
 // Nav is [navigation].
@@ -124,7 +123,7 @@ func defaultConfig() *Config {
 		Style: Style{
 			FontMono: "JetBrains Mono", FontSans: "IBM Plex Sans", BodyFont: "sans", HeadingFont: "mono",
 			FontSize: 14, ContentWidth: 780, SidebarWidth: 256, FoldersWidth: 224, TocWidth: 232,
-			Radius: 0, CodeTheme: "auto",
+			Radius: 0,
 		},
 		Navigation: Nav{ShowToC: true, StatusBar: true},
 		AI:         AIConfig{Provider: "anthropic", Model: "claude-opus-5-5", Effort: "high", MaxInputKB: 10240},
@@ -206,9 +205,6 @@ func (s *Style) normalize() {
 	clamp(&s.TocWidth, 160, 420, def.TocWidth)
 	if s.Radius < 0 || s.Radius > 24 {
 		s.Radius = def.Radius
-	}
-	if s.CodeTheme != "light" && s.CodeTheme != "dark" {
-		s.CodeTheme = "auto"
 	}
 }
 
@@ -315,7 +311,7 @@ var configTmpl = template.Must(template.New("toml").Funcs(template.FuncMap{
 [site]
 title         = {{q .Site.Title}}
 author        = {{q .Site.Author}}
-{{kv "theme" (q .Site.Theme) "default theme: light | dark (readers switch in the top bar)"}}
+{{kv "theme" (q .Site.Theme) "gomark theme lists them"}}
 {{kv "out" (q .Site.Out) "output directory, relative to this site"}}
 {{kv "gomark_url" (q .Site.GoMarkURL) "link on \"GoMark\" in the top bar; \"\" = no link"}}
 
@@ -341,8 +337,7 @@ description = {{q .Description}}
 {{kv "sidebar_width" .SidebarWidth "files column in px"}}
 {{kv "folders_width" .FoldersWidth "folders column in px"}}
 {{kv "toc_width" .TocWidth "outline column in px"}}
-{{kv "radius" .Radius "corner radius in px (0 = square)"}}
-{{kv "code_theme" (q .CodeTheme) "code blocks: \"auto\" (follows the theme) | \"light\" | \"dark\""}}{{end}}
+{{kv "radius" .Radius "corner radius in px (0 = square)"}}{{end}}
 
 # Navigation
 [navigation]

@@ -15,33 +15,6 @@
     } catch (e) { return null; }
   }
 
-  /* ─── Theme switch ──────────────────────────────────────────────────── */
-  // The site's theme is the default; the reader's choice is kept only when it
-  // differs from it, so a new default still reaches readers who never chose.
-  function initTheme() {
-    var opts = document.querySelectorAll('[data-theme-set]');
-    if (!opts.length || !window.gomarkTheme) return;
-    function mark(name) {
-      document.body.setAttribute('data-theme', name);
-      Array.prototype.forEach.call(opts, function (b) {
-        b.setAttribute('aria-pressed', b.getAttribute('data-theme-set') === name ? 'true' : 'false');
-      });
-    }
-    // The head script may have applied the reader's theme already.
-    mark(document.documentElement.getAttribute('data-theme') || G.theme);
-    Array.prototype.forEach.call(opts, function (b) {
-      b.addEventListener('click', function () {
-        var name = b.getAttribute('data-theme-set');
-        if (!window.gomarkTheme(name)) return;
-        mark(name);
-        try {
-          if (name === G.theme) localStorage.removeItem('gomark-theme');
-          else localStorage.setItem('gomark-theme', name);
-        } catch (e) {}
-      });
-    });
-  }
-
   /* ─── Folder tree ───────────────────────────────────────────────────── */
   function initTree() {
     var nodes = document.querySelectorAll('.tree-node.has-children');
@@ -191,7 +164,6 @@
   }
 
   function boot() {
-    initTheme();
     initTree();
     initContent();
     initCode();

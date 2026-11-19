@@ -17,6 +17,21 @@
  *   - series use WiMark.series(i), states use WiMark.state(name): identity is
  *     never color alone (labels, icons, dashes, textures);
  *   - text goes in with textContent (WiMark.h) or WiMark.inline, never as HTML.
+ *
+ * Yellow, the one warm touch. The theme is monochrome plus one yellow, and a
+ * WiMark spends it only where the reader's eye must land — one or two things
+ * at most: the mark that matters (the optimum, the equilibrium, the current
+ * choice) with the class wm-hl, which works like a series class on a dot, a
+ * line or a bar; a soft region of a chart with wm-hl-zone; the key readout
+ * with { hl: true } in stats(); one number in text with wm-hl-text; a real
+ * warning with the state 'warn'. Never a whole series, never text drawn in
+ * yellow, never backgrounds, borders or decoration. When nothing deserves the
+ * eye, use no yellow.
+ *
+ * An interactive WiMark sits in a pane(): charts in its body, sliders from
+ * controls(), readouts from stats(), a verdict from note(). Chart labels go
+ * through c.label() (a halo, no overlaps), curves through c.clipped() (they
+ * never leave the plot). Strings follow the page language with say().
  */
 (function (global) {
   'use strict';
@@ -362,7 +377,7 @@
     var err = (count * step) / span;
     if (err <= 0.15) step *= 10; else if (err <= 0.35) step *= 5; else if (err <= 0.75) step *= 2;
     var out = [];
-    for (var v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(+v.toFixed(12));
+    for (var v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(+v.toFixed(12) || 0);
     return out;
   }
 
@@ -394,15 +409,27 @@
   }
 
   /* ─── Chart frame ─────────────────────────────────────────────────────── */
-  // chart(el, opts) → an SVG with a plot area. opts: width, height, margin, label.
+  // chart(el, opts) → an SVG with a plot area. opts: width, height, margin,
+  // label, title, xTitle and yTitle (axis names; the margins make room).
+  // The returned c has w, h (plot size) and: add(node); clipped(node), cut to
+  // the plot; axisY(y, {ticks, format}), axisX(labels, x), axisXLinear(x,
+  // {ticks, format}); dot(x, y, cls, r), a point labels avoid; label(x, y,
+  // text, {at, cls}), text with a halo at the first free spot; avoid(x, y, w, h).
   function chart(el, opts) {
     opts = opts || {};
     textures();
     var W = opts.width || 640, H = opts.height || 300;
-    var m = Object.assign({ top: 16, right: 16, bottom: 32, left: 48 }, opts.margin || {});
+    var m = Object.assign({ top: opts.yTitle ? 26 : 16, right: 16, bottom: opts.xTitle ? 46 : 32, left: 48 }, opts.margin || {});
     var root = svg('svg', { class: 'wm-chart', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': opts.label || '' });
     var plot = svg('g', { transform: 'translate(' + m.left + ',' + m.top + ')' });
+    var clipId = uid('wm-clip');
+    root.appendChild(svg('defs', null, svg('clipPath', { id: clipId },
+      svg('rect', { x: -1, y: -1, width: W - m.left - m.right + 2, height: H - m.top - m.bottom + 2 }))));
     root.appendChild(plot);
+    var inner = svg('g', { 'clip-path': 'url(#' + clipId + ')' });
+    var tags = svg('g', 'wm-tags');
+    plot.appendChild(inner);
+    var placed = [];
     var figure = h('figure', 'wm-figure');
     if (opts.title) figure.appendChild(h('figcaption', 'wm-figure-title', inline(opts.title)));
     figure.appendChild(root);
@@ -410,7 +437,43 @@
     var c = {
       svg: root, plot: plot, figure: figure, width: W, height: H, margin: m,
       w: W - m.left - m.right, h: H - m.top - m.bottom,
-      add: function (node) { plot.appendChild(node); return node; },
+      add: function (node) { plot.insertBefore(node, tags.parentNode ? tags : null); return node; },
+      // clipped adds a node cut to the plot area: curves and lines that run off it.
+      clipped: function (node) { inner.appendChild(node); return node; },
+      // dot draws a point (class: a series or wm-hl) and keeps labels off it.
+      dot: function (x, y, cls, r) {
+        r = r || 4;
+        placed.push({ x: x - r, y: y - r, w: 2 * r, h: 2 * r });
+        return c.add(svg('circle', { cx: x, cy: y, r: r, class: 'wm-dot ' + (cls || series(0)) }));
+      },
+      // avoid keeps labels off a box (plot coordinates).
+      avoid: function (x, y, w, hh) { placed.push({ x: x, y: y, w: w, h: hh }); },
+      // label writes text near (x, y) with a halo, at the first spot that
+      // overlaps no other label or dot and stays inside the plot. opts.at
+      // picks the first spot tried: 'ne' (default), 'se', 'nw', 'sw', 'n', 's',
+      // 'e', 'w'; opts.cls adds a class (wm-strong: ink, bold).
+      label: function (x, y, text, opts2) {
+        opts2 = opts2 || {};
+        var str = String(text), tw = textWidth(str, 11), th = 12, gap = opts2.gap || 7;
+        var spots = { ne: [gap, -gap, 'start'], se: [gap, gap + 9, 'start'], nw: [-gap, -gap, 'end'], sw: [-gap, gap + 9, 'end'],
+          n: [0, -gap - 3, 'middle'], s: [0, gap + 12, 'middle'], e: [gap + 2, 4, 'start'], w: [-gap - 2, 4, 'end'] };
+        var order = ['ne', 'se', 'nw', 'sw', 'n', 's', 'e', 'w'];
+        if (opts2.at && spots[opts2.at]) order = [opts2.at].concat(order.filter(function (k) { return k !== opts2.at; }));
+        function box(k) {
+          var sp = spots[k], bx = x + sp[0] - (sp[2] === 'end' ? tw : sp[2] === 'middle' ? tw / 2 : 0);
+          return { x: bx - 1, y: y + sp[1] - th + 3, w: tw + 2, h: th - 1, sp: sp };
+        }
+        function free(b) {
+          if (b.x < -m.left + 2 || b.x + b.w > c.w + m.right - 2 || b.y < -m.top + 2 || b.y + b.h > c.h - 2) return false;
+          return placed.every(function (o) { return b.x + b.w <= o.x || o.x + o.w <= b.x || b.y + b.h <= o.y || o.y + o.h <= b.y; });
+        }
+        var best = null;
+        for (var i = 0; i < order.length && !best; i++) { var b = box(order[i]); if (free(b)) best = b; }
+        best = best || box(order[0]);
+        placed.push(best);
+        return tags.appendChild(svg('text', { x: x + best.sp[0], y: y + best.sp[1], 'text-anchor': best.sp[2],
+          class: 'wm-tag-text' + (opts2.cls ? ' ' + opts2.cls : ''), text: str }));
+      },
       // gridY draws horizontal gridlines and y labels for scale y.
       axisY: function (y, opts2) {
         opts2 = opts2 || {};
@@ -449,6 +512,9 @@
         return g;
       }
     };
+    plot.appendChild(tags);
+    if (opts.xTitle) plot.appendChild(svg('text', { x: c.w, y: c.h + 38, 'text-anchor': 'end', class: 'wm-axis-title', text: opts.xTitle }));
+    if (opts.yTitle) plot.appendChild(svg('text', { x: -m.left + 4, y: -12, class: 'wm-axis-title', text: opts.yTitle }));
     return c;
   }
 
@@ -510,6 +576,82 @@
   // dataTable appends a collapsed table with the numbers behind a chart.
   function dataTable(el, head, rows) {
     el.appendChild(h('details', 'wm-data', h('summary', null, t('data')), table(head, rows)));
+  }
+
+  /* ─── Language ────────────────────────────────────────────────────────── */
+  // lang is the page language; say picks { en, it, … }[lang], else en, else
+  // the first entry. A plain string passes through.
+  function lang() { return String(G.lang || document.documentElement.lang || 'en').slice(0, 2).toLowerCase(); }
+  function say(map) {
+    if (!map || typeof map !== 'object') return map === undefined || map === null ? '' : String(map);
+    var l = lang();
+    return map[l] !== undefined ? map[l] : map.en !== undefined ? map.en : map[Object.keys(map)[0]];
+  }
+
+  /* ─── Panes: the frame of an interactive WiMark ───────────────────────── */
+  // pane(el, { title, tag }) → { root, body, section() }: a hairline frame
+  // with a mono head, like a code block's tab. body holds the charts;
+  // section() adds a band below it (controls, readouts, notes).
+  function pane(el, opts) {
+    opts = opts || {};
+    var root = h('div', 'wm-pane');
+    if (opts.title || opts.tag) {
+      root.appendChild(h('div', 'wm-pane-head', h('span', 'wm-pane-title', inline(say(opts.title))),
+        opts.tag ? h('span', 'wm-pane-tag', say(opts.tag)) : null));
+    }
+    var body = h('div', 'wm-pane-body');
+    root.appendChild(body);
+    el.appendChild(root);
+    return {
+      root: root, body: body,
+      section: function (cls) { return root.appendChild(h('div', 'wm-pane-section' + (cls ? ' ' + cls : ''))); }
+    };
+  }
+
+  // controls(host, P, specs, onChange, cols): one slider per spec
+  // { key, label, min, max, step, format }, in a grid of cols columns
+  // (default 2). A slider writes Number(value) into P[key], then calls onChange.
+  function controls(host, P, specs, onChange, cols) {
+    var grid = h('div', { class: 'wm-controls', style: { '--cols': cols || 2 } });
+    specs.forEach(function (sp) {
+      var f = sp.format || function (x) { return fmt(x); };
+      var label = String(say(sp.label));
+      var input = h('input', { type: 'range', class: 'wm-range', min: sp.min, max: sp.max, step: sp.step || 'any', value: P[sp.key], 'aria-label': label });
+      var out = h('output', null, f(P[sp.key]));
+      input.addEventListener('input', function () {
+        P[sp.key] = Number(input.value);
+        out.textContent = f(P[sp.key]);
+        onChange(sp.key);
+      });
+      grid.appendChild(h('label', 'wm-slider', h('span', 'wm-slider-label', inline(label.replace(/ /g, '\u00a0').replace(/-/g, '\u2011'))), input, out));
+    });
+    host.appendChild(grid);
+    return grid;
+  }
+
+  // stats(host, specs) → set(key, text): readouts in a row of hairline cells.
+  // spec { key, label, hl }: hl marks the one readout that matters (yellow dot).
+  function stats(host, specs) {
+    var row = h('div', 'wm-stats'), outs = {};
+    specs.forEach(function (sp) {
+      outs[sp.key] = h('div', 'wm-stat-value', '—');
+      row.appendChild(h('div', 'wm-stat' + (sp.hl ? ' wm-hl' : ''), h('div', 'wm-stat-label', inline(say(sp.label))), outs[sp.key]));
+    });
+    host.appendChild(row);
+    return function (key, text) { if (outs[key]) outs[key].textContent = text; };
+  }
+
+  // note(host) → set(state, text): a one-line verdict with the state's icon.
+  function note(host) {
+    var box = h('div', 'wm-note');
+    host.appendChild(box);
+    return function (st, text) {
+      st = state(st);
+      box.className = 'wm-note wm-' + st;
+      box.textContent = '';
+      box.appendChild(h('span', 'wm-icon', h('span', null, ICONS[st])));
+      box.appendChild(h('span', 'wm-note-text', inline(text)));
+    };
   }
 
   /* ─── Tooltips: any element with data-tip ─────────────────────────────── */
@@ -992,7 +1134,7 @@
     register: register, mount: mount, values: values, example: example, source: source, json: json, inlineJSON: inlineJSON,
     get: function (name) { return registry[name] || null; },
     names: function () { return Object.keys(registry); },
-    t: t, h: h, svg: svg, tex: tex, inline: inline, paras: paras, prose: prose, url: url, asset: asset, uid: uid,
+    t: t, lang: lang, say: say, pane: pane, controls: controls, stats: stats, note: note, h: h, svg: svg, tex: tex, inline: inline, paras: paras, prose: prose, url: url, asset: asset, uid: uid,
     list: list, rows: rows, lines: lines, sections: sections, tabular: tabular, cell: cell, seriesData: seriesData, num: num, fmt: fmt, compact: compact, date: date, fmtDate: fmtDate, extent: extent, sum: sum,
     series: series, state: state, icon: icon, token: token, font: font, textures: textures,
     store: store, copy: copy,

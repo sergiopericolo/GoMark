@@ -15,8 +15,16 @@ import (
 // Theme classes. A theme declares one in its header (" * class: <name>") and
 // CheckTheme verifies it against the colors the theme actually uses.
 const (
-	ClassMonochrome = "monochrome" // ink on paper: neutrals only
+	ClassMonochrome = "monochrome" // ink on paper: neutrals, one highlight hue
 )
+
+// highlightTokens may hold the one hue a monochrome theme allows: a light
+// touch for a dot, a warning or a highlight. Every other token is neutral.
+var highlightTokens = []string{"--mark", "--wm-warn", "--wm-hl"}
+
+func isHighlight(token string) bool {
+	return slices.ContainsFunc(highlightTokens, func(p string) bool { return strings.HasPrefix(token, p) })
+}
 
 // ThemeClasses lists the classes in order.
 var ThemeClasses = []string{ClassMonochrome}
@@ -38,6 +46,7 @@ type ThemeInfo struct {
 	Name     string
 	Class    string // declared
 	Families int    // hue families in the palette
+	Accents  int    // of which in the highlight tokens
 	Colors   int    // distinct colors
 	Problems []string
 }
@@ -121,18 +130,36 @@ func CheckTheme(name string) (ThemeInfo, error) {
 	}
 	info.Colors = len(pal)
 	info.Families = hueFamilies(pal)
+	body := cssCommentRe.ReplaceAllString(src, "")
+	var hues []string // tokens with a hue outside the highlight tokens
+	var accents color.Palette
+	for _, m := range cssVarRe.FindAllStringSubmatch(body, -1) {
+		for _, h := range hexColorRe.FindAllStringSubmatch(m[2], -1) {
+			n, _ := strconv.ParseUint(h[1], 16, 32)
+			c := color.RGBA{uint8(n >> 16), uint8(n >> 8), uint8(n), 255}
+			if isHighlight(m[1]) {
+				accents = append(accents, c)
+			} else if _, chroma := hue(c); chroma >= neutralChroma && !slices.Contains(hues, m[1]) {
+				hues = append(hues, m[1])
+			}
+		}
+	}
+	info.Accents = hueFamilies(accents)
 	switch info.Class {
 	case "":
 		info.Problems = append(info.Problems, `no class declared (add " * class: monochrome" to the header)`)
 	case ClassMonochrome:
-		if info.Families != 0 {
-			info.Problems = append(info.Problems, fmt.Sprintf("monochrome but the palette has %d hue families (want neutrals only)", info.Families))
+		if len(hues) > 0 {
+			info.Problems = append(info.Problems, fmt.Sprintf("monochrome but these tokens have a hue (want neutrals; a hue only in %s*): %s", strings.Join(highlightTokens, "*, "), strings.Join(hues, " ")))
+		}
+		if info.Accents > 1 {
+			info.Problems = append(info.Problems, fmt.Sprintf("the highlight tokens use %d hue families (want one)", info.Accents))
 		}
 	default:
 		info.Problems = append(info.Problems, fmt.Sprintf("unknown class %q (use %s)", info.Class, strings.Join(ThemeClasses, ", ")))
 	}
 	declared := map[string]bool{}
-	for _, m := range cssVarRe.FindAllStringSubmatch(cssCommentRe.ReplaceAllString(src, ""), -1) {
+	for _, m := range cssVarRe.FindAllStringSubmatch(body, -1) {
 		declared[m[1]] = true
 	}
 	var missing []string

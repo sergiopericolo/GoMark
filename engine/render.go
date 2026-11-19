@@ -42,7 +42,6 @@ type Context struct {
 	DepthMode     string       // "home" | "flat" | "multi" | "page"
 	Index         string       // "On this page" column: "right" | "left" | "none"
 	Switch        []LangLink   // language switch; empty in a single-language build
-	Themes        []string     // themes the reader can switch between; empty when a section fixes its own
 	Grid          template.CSS // body grid-template-columns of this page
 	RootPrefix    string       // root of the output (sections and static/)
 	SectionPrefix string       // root of the current section
@@ -116,26 +115,8 @@ func (r *builder) context(depth int) *Context {
 		Site: site, Lang: r.lang, Style: cfg.Style, Nav: cfg.Navigation,
 		StyleVars: styleVars(cfg.Style), FontsURL: fontsURL(cfg.Style),
 		Sections: r.sections, RootPrefix: relPrefix(depth), Version: Version, strings: r.strings,
-		Themes: switchThemes(), Index: indexNone, Grid: "--grid: minmax(0, 1fr); --grid-medium: minmax(0, 1fr)",
+		Index: indexNone, Grid: "--grid: minmax(0, 1fr); --grid-medium: minmax(0, 1fr)",
 	}
-}
-
-// switchThemes lists the themes of the reader's switch: all of them, or none
-// when there is only one.
-func switchThemes() []string {
-	if ts := Themes(); len(ts) > 1 {
-		return ts
-	}
-	return nil
-}
-
-// ThemeLabel names a theme in the switch: "theme_<name>" in the interface
-// strings, else the theme's own name.
-func (c *Context) ThemeLabel(name string) string {
-	if v, ok := c.strings["theme_"+name]; ok {
-		return v
-	}
-	return name
 }
 
 // LangLink is one entry of the language switch.
