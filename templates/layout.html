@@ -181,7 +181,7 @@
       <div class="search-bar"><span class="search-prompt" aria-hidden="true">❯</span>
       <input class="search-input" type="search" placeholder="{{.T "search"}}" autocomplete="off" spellcheck="false" aria-controls="search-results"></div>
       <ul class="search-results" id="search-results" role="listbox"></ul>
-      <div class="search-hint" aria-hidden="true"><span><kbd>↑↓</kbd> {{.T "search_move"}}</span><span><kbd>↵</kbd> {{.T "search_go"}}</span><span><kbd>esc</kbd> {{.T "search_close"}}</span></div>
+      <div class="search-hint" aria-hidden="true"><span><kbd>↑↓</kbd> {{.T "search_move"}}</span><span><kbd>↵</kbd> {{.T "search_go"}}</span><span><kbd>tab</kbd> {{.T "search_tab"}}</span><span><kbd>esc</kbd> {{.T "search_close"}}</span></div>
     </div>
   </div>
 
@@ -191,7 +191,10 @@
       root: "{{.RootPrefix}}",
       theme: "{{.Site.Theme}}",
       section: "{{if .ActiveSection}}{{.ActiveSection.ID}}{{end}}",
-      i18n: { noResults: "{{.T "search_none"}}", copy: "{{.T "copy"}}", copied: "{{.T "copied"}}", words: "{{.T "words"}}", minRead: "{{.T "min_read"}}",
+      i18n: { noResults: "{{.T "search_none"}}", searchFilters: "{{.T "search_filters"}}", searchTab: "{{.T "search_tab"}}",
+        qSection: "{{.T "sq_section"}}", qHeading: "{{.T "sq_heading"}}", qTitle: "{{.T "sq_title"}}", qCode: "{{.T "sq_code"}}",
+        qIn: "{{.T "sq_in"}}", qHas: "{{.T "sq_has"}}", qPath: "{{.T "sq_path"}}", qPhrase: "{{.T "sq_phrase"}}",
+        qNot: "{{.T "sq_not"}}", qOr: "{{.T "sq_or"}}", qRegex: "{{.T "sq_regex"}}", copy: "{{.T "copy"}}", copied: "{{.T "copied"}}", words: "{{.T "words"}}", minRead: "{{.T "min_read"}}",
         data: "{{.T "wm_data"}}", search: "{{.T "wm_search"}}", noData: "{{.T "wm_no_data"}}", other: "{{.T "wm_other"}}",
         total: "{{.T "wm_total"}}", show: "{{.T "wm_show"}}", hide: "{{.T "wm_hide"}}", reset: "{{.T "wm_reset"}}", all: "{{.T "wm_all"}}" }
     };

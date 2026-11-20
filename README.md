@@ -37,6 +37,11 @@ dist/            output
   Widgets spend it the same way: see the widget brief.
   `gomark theme check` verifies it.
 - Every build writes a search index. Press `⌘K`, `Ctrl K` or `/` on any page.
+  The query reads like GitHub's: `"exact phrase"`, `-word`, `a OR b`,
+  `/regex/`, and qualifiers `section:` `title:` `heading:` `text:` `code:`
+  `path:` `lang:` `in:` `has:` `widget:` `is:`. `heading:setup npm` finds
+  `npm` only under the headings that match `setup`; `lang:go code:func`
+  only in Go blocks. An empty box lists them; `tab` completes a value.
 
 ## Widgets
 

@@ -149,11 +149,11 @@ button { font: inherit; color: inherit; }
   color: var(--ink);
   font-family: var(--mono);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 .brand::before { content: "❯"; color: var(--gray-soft); font-weight: 400; transition: color 0.15s var(--ease), transform 0.25s var(--ease); }
-.brand:hover::before { color: var(--ink); transform: translateX(2px); }
+.brand:hover::before { color: var(--mark); transform: translateX(2px); }
 .section-link {
   position: relative;
   color: var(--gray);
@@ -178,9 +178,10 @@ button { font: inherit; color: inherit; }
 }
 .section-link.active::after { transform: scaleX(1); }
 .section-link.active .section-idx { color: var(--ink); }
+.section-link.active .section-title::after { content: "●"; font-size: 0.55em; vertical-align: 0.35em; margin-left: 0.5em; color: var(--mark); }
 
 .build-info { color: var(--gray-soft); font-size: 10.5px; }
-.build-name { color: var(--gray); font-weight: 500; text-decoration: none; }
+.build-name { color: var(--gray); font-weight: 600; text-decoration: none; }
 a.build-name:hover { color: var(--ink); }
 
 /* The language switch: a hairline box, the current one raised. */
@@ -490,6 +491,7 @@ body[data-heading="mono"] .page-body :is(h1, h2, h3, h4) { letter-spacing: -0.02
 .tree-root { color: var(--gray); font-size: 11.5px; border-radius: var(--radius); }
 .tree-root:hover { color: var(--ink); }
 .tree-root.active { color: var(--ink); background: var(--hover); }
+.tree-root.active::before, .tree-folder.active .tree-name::before { content: "●"; font-size: 0.68em; vertical-align: 0.15em; margin-right: 0.55em; color: var(--mark); }
 .tree ul { border-left: 1px solid var(--line); }
 .tree-toggle { color: var(--gray-soft); }
 .tree-toggle:hover { color: var(--ink); }
@@ -518,7 +520,7 @@ body[data-heading="mono"] .page-body :is(h1, h2, h3, h4) { letter-spacing: -0.02
   background: var(--accent);
   transition: height 0.25s var(--ease);
 }
-.toc-tree a.active::before { height: 100%; }
+.toc-tree a.active::before { height: 100%; background: var(--mark); }
 .toc-l1 > a { color: var(--text); font-size: 12.5px; font-weight: 500; }
 .toc-l1 + .toc-l1 { margin-top: 0.4rem; }
 .toc-l2 > a { color: var(--gray); font-size: 12px; }
@@ -567,7 +569,7 @@ body[data-heading="mono"] .page-body :is(h1, h2, h3, h4) { letter-spacing: -0.02
   box-shadow: 0 24px 64px -16px color-mix(in srgb, var(--ink) 28%, transparent);
 }
 .search-bar { border-bottom: 1px solid var(--line); }
-.search-prompt { color: var(--gray-soft); font-family: var(--mono); font-size: 18px; }
+.search-prompt { color: var(--mark); font-family: var(--mono); font-size: 18px; }
 .search-input {
   color: var(--ink);
   font-family: var(--mono);
@@ -578,18 +580,23 @@ body[data-heading="mono"] .page-body :is(h1, h2, h3, h4) { letter-spacing: -0.02
   border: 0;
   border-radius: 0;
   outline: none;
-  caret-color: var(--accent);
+  caret-color: var(--mark);
 }
 .search-input::placeholder { color: var(--gray-soft); }
 .search-input::-webkit-search-cancel-button { display: none; }
 .search-result { color: var(--text); border-radius: var(--radius); }
-.search-result.active { background: var(--hover); }
+.search-result.active { background: var(--hover); box-shadow: inset 2px 0 0 var(--mark); }
 .search-title { color: var(--ink); font-family: var(--sans); font-size: 14.5px; font-weight: 500; letter-spacing: -0.01em; }
 .search-heading { color: var(--gray); font-size: 11.5px; }
 .search-snippet { color: var(--gray); font-family: var(--font-body); font-size: 13px; line-height: 1.55; }
 .search mark { color: var(--ink); background: var(--mark-soft); border-radius: var(--radius-sm); padding: 0 0.1em; }
 .search-hint { color: var(--gray-soft); border-top: 1px solid var(--line); }
-.search-empty { color: var(--gray-soft); font-size: 12px; }
+.search-empty, .search-more { color: var(--gray-soft); font-size: 12px; }
+.search-code { font-family: var(--mono); font-size: 12px; }
+.search-group { color: var(--gray-soft); font-family: var(--mono); font-size: 10.5px; text-transform: lowercase; }
+.search-tip-q { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+.search-tip-q b { color: var(--mark-ink); font-weight: 600; }
+.search-tip-d { color: var(--gray-soft); font-size: 12px; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }

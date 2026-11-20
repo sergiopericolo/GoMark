@@ -216,6 +216,11 @@ body[data-index="left"] .col-toc { order: -1; }
 .search-heading { display: block; margin-top: 0.15rem; }
 .search-snippet { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 0.3rem; }
 .search-empty { padding: 1.25rem 1.4rem; }
+.search-more { padding: 0.5rem 1rem; text-align: right; }
+.search-group { padding: 0.6rem 1rem 0.3rem; }
+.search-tip { display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem; padding: 0.45rem 1rem; }
+.search-tip-q { flex: none; white-space: nowrap; }
+.search-tip-d { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .search-hint { flex: none; display: flex; gap: 1.5rem; padding: 0.6rem 1.4rem; }
 
 /* ─── Code blocks ─────────────────────────────────────────────────────────── */
